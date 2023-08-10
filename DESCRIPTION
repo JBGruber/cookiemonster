@@ -1,0 +1,21 @@
+Package: cookiemonster
+Title: Package to deal with cookies in R
+Version: 0.0.0.9000
+Authors@R: 
+    person("Johannes", "Gruber", , "JohannesB.Gruber@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-9177-1772"))
+Description: Package to deal with cookies in R.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Imports: 
+    cli,
+    stringi,
+    rappdirs,
+    tibble,
+    vctrs

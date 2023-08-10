@@ -1,0 +1,28 @@
+---
+title: "Using `cookiemonster`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using `cookiemonster`}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Reading and storing cookies
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(cookiemonster)
+```
+
+# Using stored cookies with `httr2`
+
+# Using stored cookies with `httr`
+
+# Using stored cookies with `curl`
+
