@@ -1,5 +1,5 @@
 Package: cookiemonster
-Title: Package to deal with cookies in R
+Title: Your friendly solution to managing browser cookies in R
 Version: 0.0.0.9000
 Authors@R: 
     person("Johannes", "Gruber", , "JohannesB.Gruber@gmail.com", role = c("aut", "cre"),

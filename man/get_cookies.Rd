@@ -39,6 +39,10 @@ The function returns cookies in one of three formats:
 See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
 these packages.
 }
+\note{
+Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
+more info.
+}
 \examples{
 get_cookies("https://hb.cran.dev")  # Reach into your cookie jar and enjoy!
 }

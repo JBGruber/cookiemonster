@@ -25,6 +25,9 @@
 #' @note You can't provide both a cookiefile and a cookiestring at the same
 #'   time. That's like trying to dunk two cookies in a tiny cup of milk!
 #'
+#'   Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
+#'   more info.
+#'
 #' @seealso \code{\link{store_cookies}}
 #'
 #' @export
@@ -54,6 +57,7 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #' @examples
 #' store_cookies(cookies)
 store_cookies <- function(cookies, jar = default_jar()) {
+  cookies$value <- encrypt_vec(cookies$value)
   dir.create(jar, showWarnings = FALSE)
   f <- file.path(jar, paste0("cookies.rds"))
   if (file.exists(f)) {
@@ -92,6 +96,7 @@ default_jar <- function() {
     rappdirs::user_cache_dir("r_cookies")
   }
 }
+
 
 #' read a cookie file
 #' @noRd

@@ -22,6 +22,9 @@
 #' See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
 #' these packages.
 #'
+#' @note Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
+#'   more info.
+#'
 #'
 #' @export
 #'
@@ -33,11 +36,15 @@ get_cookies <- function(domain, jar = default_jar(), as = c("data.frame", "strin
   as <- match.arg(as)
   f <- file.path(jar, paste0("cookies.rds"))
   if (!file.exists(f)) {
-   cli::cli_abort("The directory {jar} does not contain any cookies yet. Use {.fn add_cookies} to store cookies for a website (see {.code vignette(\"cookies\", \"cookiemonster\")} for details).")
+   cli::cli_abort(paste(
+     "The directory {jar} does not contain any cookies yet. Use {.fn add_cookies} to",
+     "store cookies for a website (see {.code vignette(\"cookies\", \"cookiemonster\")} for details)."
+   ))
   }
   cookies <- readRDS(f)
   sel <- stringi::stri_detect_regex(cookies$domain, paste0(urltools::domain(domain), "$"))
   out <- cookies[sel, ]
+  out$value <- decrypt_vec(out$value)
 
   switch (
     as,

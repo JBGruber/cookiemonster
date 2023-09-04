@@ -28,6 +28,9 @@ and eat it too - pick only one!
 \note{
 You can't provide both a cookiefile and a cookiestring at the same
 time. That's like trying to dunk two cookies in a tiny cup of milk!
+
+Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
+more info.
 }
 \examples{
 # Using a cookie file:
