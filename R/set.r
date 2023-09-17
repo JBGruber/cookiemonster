@@ -58,7 +58,7 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #' \dontrun{store_cookies(cookies)}
 store_cookies <- function(cookies, jar = default_jar()) {
   cookies$value <- encrypt_vec(cookies$value)
-  dir.create(jar, showWarnings = FALSE)
+  dir.create(jar, showWarnings = FALSE, recursive = TRUE)
   f <- file.path(jar, paste0("cookies.rds"))
   if (file.exists(f)) {
     cookies_old <- readRDS(f)
