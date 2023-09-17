@@ -44,7 +44,7 @@ Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 more info.
 }
 \examples{
-get_cookies("https://hb.cran.dev")  # Reach into your cookie jar and enjoy!
+\dontrun{get_cookies("https://hb.cran.dev")}  # Reach into your cookie jar and enjoy!
 }
 \seealso{
 \code{\link{add_cookies}}

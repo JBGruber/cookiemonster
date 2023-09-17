@@ -7,6 +7,11 @@
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/cookiemonster)](https://CRAN.R-project.org/package=cookiemonster)
+[![R-CMD-check](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/JBGruber/cookiemonster/branch/main/graph/badge.svg)](https://app.codecov.io/gh/JBGruber/cookiemonster?branch=main)
 <!-- badges: end -->
 
 Welcome to the `cookiemonster` package, your friendly solution to

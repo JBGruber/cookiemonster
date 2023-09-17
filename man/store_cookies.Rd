@@ -15,5 +15,5 @@ store_cookies(cookies, jar = default_jar())
 Store cookies in a jar
 }
 \examples{
-store_cookies(cookies)
+\dontrun{store_cookies(cookies)}
 }

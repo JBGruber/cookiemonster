@@ -25,18 +25,19 @@ encrypt_vec <- function(vec) {
 
 #' encrypt a single element
 #' @noRd
-enc <- function(x, key) {
+enc <- function(x, key = NULL) {
   openssl::aes_ctr_encrypt(charToRaw(x), key)
 }
 
 #' @rdname encrypt_vec
+#' @export
 decrypt_vec <- function(vec) {
   key <- openssl::sha256(charToRaw(Sys.getenv("COOKIE_KEY", unset = "supergeheim")))
-  vapply(vec, dec, FUN.VALUE = character(1))
+  vapply(vec, dec, key, FUN.VALUE = character(1))
 }
 
 #' decrypt a single element
 #' @noRd
-dec <- function(x, key) {
+dec <- function(x, key = NULL) {
   rawToChar(openssl::aes_ctr_decrypt(x, key))
 }

@@ -29,7 +29,7 @@
 #' @export
 #'
 #' @examples
-#' get_cookies("https://hb.cran.dev")  # Reach into your cookie jar and enjoy!
+#' \dontrun{get_cookies("https://hb.cran.dev")}  # Reach into your cookie jar and enjoy!
 #' @seealso \code{\link{add_cookies}}
 get_cookies <- function(domain, jar = default_jar(), as = c("data.frame", "string", "vector")) {
 
@@ -63,7 +63,7 @@ prep_cookies <- function(tbl, as_list = FALSE) {
     if (!as_list) {
       return(paste0(tbl$name, "=", tbl$value, collapse = "; "))
     } else {
-      return(setNames(tbl$value, tbl$name))
+      return(stats::setNames(tbl$value, tbl$name))
     }
   }
 }

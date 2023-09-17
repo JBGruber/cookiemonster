@@ -55,7 +55,7 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #' @export
 #'
 #' @examples
-#' store_cookies(cookies)
+#' \dontrun{store_cookies(cookies)}
 store_cookies <- function(cookies, jar = default_jar()) {
   cookies$value <- encrypt_vec(cookies$value)
   dir.create(jar, showWarnings = FALSE)
@@ -126,6 +126,10 @@ parse_cookiestring <- function(cookiestring, domain) {
   cookiestring <- stringi::stri_split_fixed(cookiestring, pattern = "; ")[[1]]
   tibble::tibble(
     domain = domain,
+    flag = NA,
+    path = NA,
+    secure = NA,
+    expiration = NA,
     name = stringi::stri_extract_first_regex(cookiestring, "^.*?(?==)"),
     value = stringi::stri_extract_first_regex(cookiestring, "(?<==).*$")
   )
