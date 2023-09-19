@@ -24,7 +24,7 @@ character string, or a named vector.
 }
 \description{
 Imagine you're reaching into a magical jar overflowing with those scrumptious
-digital delights from websites you've visited. The flavor? Up to you! Just
+digital delights from websites you've visited. The flavour? Up to you! Just
 select your desired output format.
 }
 \details{

@@ -28,7 +28,7 @@ Browser cookies are small pieces of data that websites send to your browser to s
 They help websites remember your preferences, login information, or even the items in your shopping cart.
 Cookies play a crucial role in making your browsing experience smooth and personalized.
 In `R` browser cookies come in handy when working with tasks that involve web interactions, like web scraping, browsing automation, website testing, or API calls that require authentication.
-They allow your scripts to efficiently mimic browser behavior and maintain sessions as well as user-specific data.
+They allow your scripts to efficiently mimic browser behaviour and maintain sessions as well as user-specific data.
 
 
 ## Reading and Storing Cookies

@@ -56,7 +56,7 @@ browsing experience smooth and personalized. In `R` browser cookies come
 in handy when working with tasks that involve web interactions, like web
 scraping, browsing automation, website testing, or API calls that
 require authentication. They allow your scripts to efficiently mimic
-browser behavior and maintain sessions as well as user-specific data.
+browser behaviour and maintain sessions as well as user-specific data.
 
 ## Reading and Storing Cookies
 
