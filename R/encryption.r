@@ -1,18 +1,19 @@
 #' Encrypts/Decrypts a vector
 #'
-#' @description
-#' Used internally to encrypt/decrypt the value column of your cookie jar.
+#' @description Used internally to encrypt/decrypt the value column of your
+#' cookie jar.
 #'
 #'
 #' @param vec A vector of values to encrypt
-#' @return A list of encrypted values
 #' @export
 #'
 #' @details If you save valuable cookies, for example login information, you
-#' should encrypt them with a personalised password. This can be set with, e.g.,
-#' \code{Sys.getenv("COOKIE_KEY", unset = "supergeheim")} or in an .Renviron
-#' file.
+#'   should encrypt them with a personalised password. This can be set with,
+#'   e.g., \code{Sys.setenv("COOKIE_KEY" = "megageheim")} or in an
+#'   .Renviron file.
 #'
+#' @returns list of encrypted elements (for \code{encrypt_vec}); vector of
+#'   decrypted elements (for \code{encrypt_vec}).
 #'
 #' @examples
 #' enc <- encrypt_vec(c("foo", "bar"))

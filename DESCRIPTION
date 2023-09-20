@@ -1,15 +1,20 @@
 Package: cookiemonster
-Title: Your friendly solution to managing browser cookies in R
+Title: Your Friendly Solution to Managing Browser Cookies
 Version: 0.0.1
-Authors@R: 
-    person("Johannes", "Gruber", , "JohannesB.Gruber@gmail.com", role = c("aut", "cre"),
+Authors@R:
+    person(given = "Johannes B.",
+           family = "Gruber",
+           email = "JohannesB.Gruber@gmail.com", 
+           role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9177-1772"))
-Description: Package to deal with cookies in R.
+Description: A convenient tool to store and format browser cookies and use them 
+    in 'HTTP' requests (for example, through 'httr2', 'httr' or 'curl').
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Suggests: 
+    curl,
     knitr,
     rmarkdown,
     spelling,

@@ -44,7 +44,10 @@ Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 more info.
 }
 \examples{
-\dontrun{get_cookies("https://hb.cran.dev")}  # Reach into your cookie jar and enjoy!
+# put some cookies in the jar
+add_cookies(cookiestring = "chococookie=delicious", domain = "example.com")
+# Reach into your cookie jar and enjoy!
+get_cookies("example.com")
 }
 \seealso{
 \code{\link{add_cookies}}

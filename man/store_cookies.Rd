@@ -9,11 +9,27 @@ store_cookies(cookies, jar = default_jar())
 \arguments{
 \item{cookies}{A data frame of cookies}
 
-\item{jar}{The directory to store the cookies in. Defaults to \code{default_jar()}.}
+\item{jar}{The directory to store the cookies in. Defaults to
+\code{default_jar()}.}
+}
+\value{
+No return value, called to save (encrypted) cookies on disk.
 }
 \description{
 Store cookies in a jar
 }
 \examples{
-\dontrun{store_cookies(cookies)}
+if (requireNamespace("curl", quietly = TRUE)) {
+  # get cookies from a curl request
+  library(curl)
+  h <- new_handle()
+  resp <- curl_fetch_memory("https://hb.cran.dev/cookies/set?new_cookies=moo", handle = h)
+  cookies <- handle_cookies(h)
+
+  # then store them for future use
+  store_cookies(cookies)
+
+  # then you can retrieve them and use in future calls
+  get_cookies("hb.cran.dev")
+}
 }

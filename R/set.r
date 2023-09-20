@@ -11,7 +11,7 @@
 #' @param domain An optional parameter that specifies the host/domain. It's only
 #'   used when `cookiestring` is provided.
 #'
-#' @return No explicit return. Instead, this function stores the cookies using
+#' @returns No explicit return. Instead, this function stores the cookies using
 #'   the `store_cookies` function.
 #'
 #' @examples
@@ -50,12 +50,26 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #' Store cookies in a jar
 #'
 #' @param cookies A data frame of cookies
-#' @param jar The directory to store the cookies in. Defaults to \code{default_jar()}.
+#' @param jar The directory to store the cookies in. Defaults to
+#'   \code{default_jar()}.
 #'
+#' @returns No return value, called to save (encrypted) cookies on disk.
 #' @export
 #'
 #' @examples
-#' \dontrun{store_cookies(cookies)}
+#' if (requireNamespace("curl", quietly = TRUE)) {
+#'   # get cookies from a curl request
+#'   library(curl)
+#'   h <- new_handle()
+#'   resp <- curl_fetch_memory("https://hb.cran.dev/cookies/set?new_cookies=moo", handle = h)
+#'   cookies <- handle_cookies(h)
+#'
+#'   # then store them for future use
+#'   store_cookies(cookies)
+#'
+#'   # then you can retrieve them and use in future calls
+#'   get_cookies("hb.cran.dev")
+#' }
 store_cookies <- function(cookies, jar = default_jar()) {
   cookies$value <- encrypt_vec(cookies$value)
   dir.create(jar, showWarnings = FALSE, recursive = TRUE)
@@ -72,13 +86,13 @@ store_cookies <- function(cookies, jar = default_jar()) {
 
 #' Get the default cookie storage directory (jar)
 #'
-#' This function returns the default directory (jar) for storing cookies.
-#' Users can set their own cookie storage location by using
-#' \code{options(cookie_dir = "your/directory/here")}. If no custom
-#' directory is specified, the default directory used by the \code{rappdirs}
-#' package will be returned.
+#' This function returns the default directory (jar) for storing cookies. Users
+#' can set their own cookie storage location by using \code{options(cookie_dir =
+#' "your/directory/here")}. If no custom directory is specified, the default
+#' directory used by the \code{rappdirs} package will be returned.
 #'
-#' @return A string representing the path to the default cookie storage directory (jar).
+#' @returns A string representing the path to the default cookie storage
+#'   directory (jar).
 #' @export
 #'
 #' @examples
@@ -89,6 +103,9 @@ store_cookies <- function(cookies, jar = default_jar()) {
 #' options(cookie_dir = "/path/to/your/cookie/directory")
 #' # Get the custom cookie directory
 #' default_jar()
+#'
+#' # revert to the package default
+#' options(cookie_dir = rappdirs::user_cache_dir("r_cookies"))
 default_jar <- function() {
   if (!is.null(getOption("cookie_dir"))) {
     return(getOption("cookie_dir"))
@@ -110,7 +127,7 @@ read_cookiefile <- function(cookiefile) {
   colnames(df) <- c(
     "domain", "flag", "path", "secure", "expiration", "name", "value"
   )
-  df$domain <- sub("^\\.", "", df$domain)
+  df$domain <- urltools::domain(sub("^\\.", "", df$domain))
   df$expiration <- as.POSIXct.numeric(df$expiration, origin = "1970-01-01")
   return(tibble::as_tibble(df))
 
@@ -125,7 +142,7 @@ parse_cookiestring <- function(cookiestring, domain) {
   cookiestring <- stringi::stri_replace_first_regex(cookiestring, "^Cookie:\\s*", "")
   cookiestring <- stringi::stri_split_fixed(cookiestring, pattern = "; ")[[1]]
   tibble::tibble(
-    domain = domain,
+    domain = urltools::domain(domain),
     flag = NA,
     path = NA,
     secure = NA,

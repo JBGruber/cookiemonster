@@ -8,7 +8,7 @@
 #' @param jar A character string of the path to the cookie jar (the default is
 #'   to use \code{default_jar()} to get a suitable directory).
 #' @param as A character string of the type of output to return.
-#' @return Depending on the value of \code{as}, returns either a data frame, a
+#' @returns Depending on the value of \code{as}, returns either a data frame, a
 #'   character string, or a named vector.
 #'
 #' @details The function returns cookies in one of three formats:
@@ -29,7 +29,10 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{get_cookies("https://hb.cran.dev")}  # Reach into your cookie jar and enjoy!
+#' # put some cookies in the jar
+#' add_cookies(cookiestring = "chococookie=delicious", domain = "example.com")
+#' # Reach into your cookie jar and enjoy!
+#' get_cookies("example.com")
 #' @seealso \code{\link{add_cookies}}
 get_cookies <- function(domain, jar = default_jar(), as = c("data.frame", "string", "vector")) {
 

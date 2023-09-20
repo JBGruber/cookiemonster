@@ -45,7 +45,7 @@ To do this, you can use browser extensions like ["Get cookies.txt"](https://chro
 
 Let's import an example cookie file provided by the `cookiemonster` package:
 
-```{r results='hide'}
+```{r eval=FALSE}
 file.copy(
   from = system.file("extdata", "cookies.txt", package = "cookiemonster"),
   to = "."
@@ -54,12 +54,12 @@ file.copy(
 
 Now, let's add the cookies from the file to our cookie jar:
 
-```{r}
+```{r eval=FALSE}
 add_cookies(cookiefile = "cookies.txt")
 ```
 
 ```{r echo=FALSE}
-file.remove("cookies.txt")
+add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
 ```
 
 ## Default Cookie Storage

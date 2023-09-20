@@ -22,7 +22,7 @@ The focus of `cookiemonster` lies on making it possible to use these
 cookies from `R`to make request to the site (e.g., for web-scraping or
 automation). If you are looking for a way to use cookies in shiny apps
 you can check out the [cookies
-package](https://cran.r-project.org/web/packages/cookies/index.html).
+package](https://CRAN.R-project.org/package=cookies).
 
 ## Installation
 

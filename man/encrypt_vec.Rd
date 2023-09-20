@@ -13,16 +13,18 @@ decrypt_vec(vec)
 \item{vec}{A vector of values to encrypt}
 }
 \value{
-A list of encrypted values
+list of encrypted elements (for \code{encrypt_vec}); vector of
+decrypted elements (for \code{encrypt_vec}).
 }
 \description{
-Used internally to encrypt/decrypt the value column of your cookie jar.
+Used internally to encrypt/decrypt the value column of your
+cookie jar.
 }
 \details{
 If you save valuable cookies, for example login information, you
-should encrypt them with a personalised password. This can be set with, e.g.,
-\code{Sys.getenv("COOKIE_KEY", unset = "supergeheim")} or in an .Renviron
-file.
+should encrypt them with a personalised password. This can be set with,
+e.g., \code{Sys.setenv("COOKIE_KEY" = "megageheim")} or in an
+.Renviron file.
 }
 \examples{
 enc <- encrypt_vec(c("foo", "bar"))

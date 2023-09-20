@@ -7,14 +7,14 @@
 default_jar()
 }
 \value{
-A string representing the path to the default cookie storage directory (jar).
+A string representing the path to the default cookie storage
+directory (jar).
 }
 \description{
-This function returns the default directory (jar) for storing cookies.
-Users can set their own cookie storage location by using
-\code{options(cookie_dir = "your/directory/here")}. If no custom
-directory is specified, the default directory used by the \code{rappdirs}
-package will be returned.
+This function returns the default directory (jar) for storing cookies. Users
+can set their own cookie storage location by using \code{options(cookie_dir =
+"your/directory/here")}. If no custom directory is specified, the default
+directory used by the \code{rappdirs} package will be returned.
 }
 \examples{
 # Get the default jar
@@ -24,4 +24,7 @@ default_jar()
 options(cookie_dir = "/path/to/your/cookie/directory")
 # Get the custom cookie directory
 default_jar()
+
+# revert to the package default
+options(cookie_dir = rappdirs::user_cache_dir("r_cookies"))
 }

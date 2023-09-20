@@ -25,7 +25,7 @@ knitr::opts_chunk$set(
 Welcome to the `cookiemonster` package, your friendly solution to managing browser cookies in R! 🍪
 Browser cookies are a way for browsers to recognise a user and their settings throughout sessions (e.g., if you accept a site's terms of service, this acceptance is saved as a cookie).
 The focus of `cookiemonster` lies on making it possible to use these cookies from `R`to make request to the site (e.g., for web-scraping or automation).
-If you are looking for a way to use cookies in shiny apps you can check out the [cookies package](https://cran.r-project.org/web/packages/cookies/index.html).
+If you are looking for a way to use cookies in shiny apps you can check out the [cookies package](https://CRAN.R-project.org/package=cookies).
 
 
 ## Installation
