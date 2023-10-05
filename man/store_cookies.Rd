@@ -4,13 +4,16 @@
 \alias{store_cookies}
 \title{Store cookies in a jar}
 \usage{
-store_cookies(cookies, jar = default_jar())
+store_cookies(cookies, jar = default_jar(), confirm = FALSE)
 }
 \arguments{
 \item{cookies}{A data frame of cookies}
 
 \item{jar}{The directory to store the cookies in. Defaults to
 \code{default_jar()}.}
+
+\item{confirm}{If \code{TRUE}, you confirm to write the cookie jar to disk
+(if it does not exist yet) without seeing the interactive menu.}
 }
 \value{
 No return value, called to save (encrypted) cookies on disk.
@@ -19,6 +22,9 @@ No return value, called to save (encrypted) cookies on disk.
 Store cookies in a jar
 }
 \examples{
+# to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+options(cookie_dir = tempdir())
+
 if (requireNamespace("curl", quietly = TRUE)) {
   # get cookies from a curl request
   library(curl)

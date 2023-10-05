@@ -4,7 +4,7 @@
 \alias{add_cookies}
 \title{Add Cookies to the Browser}
 \usage{
-add_cookies(cookiefile, cookiestring, domain = NULL)
+add_cookies(cookiefile, cookiestring, domain = NULL, confirm = FALSE)
 }
 \arguments{
 \item{cookiefile}{A character string indicating the path to the cookie file.}
@@ -14,6 +14,9 @@ format.}
 
 \item{domain}{An optional parameter that specifies the host/domain. It's only
 used when \code{cookiestring} is provided.}
+
+\item{confirm}{If \code{TRUE}, you confirm to write the cookie jar to disk
+(if it does not exist yet) without seeing the interactive menu.}
 }
 \value{
 No explicit return. Instead, this function stores the cookies using
@@ -33,6 +36,9 @@ Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 more info.
 }
 \examples{
+# to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+options(cookie_dir = tempdir())
+
 # Using a cookie file:
 # Using the example `cookies.txt` file which contains the cookie details.
 add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))

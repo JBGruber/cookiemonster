@@ -6,17 +6,26 @@
 \usage{
 get_cookies(
   domain,
+  key = "",
   jar = default_jar(),
-  as = c("data.frame", "string", "vector")
+  as = c("data.frame", "string", "vector"),
+  fixed = FALSE
 )
 }
 \arguments{
-\item{domain}{A character string of the domain to retrieve cookies for.}
+\item{domain}{A character string of the domain to retrieve cookies for.
+Accepts regular expression depending on the value of \code{fixed}.}
+
+\item{key}{An optional filter to retrieve only certain cookies by matching
+certain keys.}
 
 \item{jar}{A character string of the path to the cookie jar (the default is
 to use \code{default_jar()} to get a suitable directory).}
 
 \item{as}{A character string of the type of output to return.}
+
+\item{fixed}{If \code{TRUE}, code{domain} and \code{key} are matched as is.
+If either \code{domain} or \code{key}, only those values are treated as is.}
 }
 \value{
 Depending on the value of \code{as}, returns either a data frame, a
@@ -44,10 +53,20 @@ Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 more info.
 }
 \examples{
+# to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+options(cookie_dir = tempdir())
+
 # put some cookies in the jar
 add_cookies(cookiestring = "chococookie=delicious", domain = "example.com")
 # Reach into your cookie jar and enjoy!
 get_cookies("example.com")
+# put different cookies into the jar (overwrites previous)
+add_cookies(cookiestring = "oatmeal=delicious; peanutbutter=delicious", domain = "example.com")
+add_cookies(cookiestring = "snickerdoodle=delicious", domain = "another.example.com")
+# only get cookies for example.com, not another.example.com
+get_cookies("^example.com")
+# only get some cookies from example.com
+get_cookies(domain = "^example.com", key = "peanut")
 }
 \seealso{
 \code{\link{add_cookies}}

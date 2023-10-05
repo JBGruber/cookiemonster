@@ -49,6 +49,6 @@ test_that("old cookies are replaced", {
   expect_equal({
     add_cookies(cookiestring = "test=true", domain = "https://tests.com")
     add_cookies(cookiestring = "chococookie=delicious", domain = "tests.com")
-    get_cookies(domain = "tests.com")$value
+    get_cookies(domain = "^tests.com")$value
   }, "delicious")
 })

@@ -10,11 +10,16 @@
 #'   format.
 #' @param domain An optional parameter that specifies the host/domain. It's only
 #'   used when `cookiestring` is provided.
+#' @param confirm If \code{TRUE}, you confirm to write the cookie jar to disk
+#'   (if it does not exist yet) without seeing the interactive menu.
 #'
 #' @returns No explicit return. Instead, this function stores the cookies using
 #'   the `store_cookies` function.
 #'
 #' @examples
+#' # to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+#' options(cookie_dir = tempdir())
+#'
 #' # Using a cookie file:
 #' # Using the example `cookies.txt` file which contains the cookie details.
 #' add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
@@ -31,7 +36,7 @@
 #' @seealso \code{\link{store_cookies}}
 #'
 #' @export
-add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
+add_cookies <- function(cookiefile, cookiestring, domain = NULL, confirm = FALSE) {
 
   if (!missing(cookiefile) & !missing(cookiestring)) {
     cli::cli_abort("This function can either handle a cookie file or string, not both")
@@ -43,7 +48,7 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
     cli::cli_abort("You must provide either cookie file or string.")
   }
 
-  store_cookies(cookies)
+  store_cookies(cookies, confirm = confirm)
 }
 
 
@@ -52,11 +57,16 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #' @param cookies A data frame of cookies
 #' @param jar The directory to store the cookies in. Defaults to
 #'   \code{default_jar()}.
+#' @param confirm If \code{TRUE}, you confirm to write the cookie jar to disk
+#'   (if it does not exist yet) without seeing the interactive menu.
 #'
 #' @returns No return value, called to save (encrypted) cookies on disk.
 #' @export
 #'
 #' @examples
+#' # to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+#' options(cookie_dir = tempdir())
+#'
 #' if (requireNamespace("curl", quietly = TRUE)) {
 #'   # get cookies from a curl request
 #'   library(curl)
@@ -70,8 +80,12 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL) {
 #'   # then you can retrieve them and use in future calls
 #'   get_cookies("hb.cran.dev")
 #' }
-store_cookies <- function(cookies, jar = default_jar()) {
+store_cookies <- function(cookies,
+                          jar = default_jar(),
+                          confirm = FALSE) {
   cookies$value <- encrypt_vec(cookies$value)
+  cookies$domain <- urltools::domain(cookies$domain)
+  domains <- toString(unique(cookies$domain))
   dir.create(jar, showWarnings = FALSE, recursive = TRUE)
   f <- file.path(jar, paste0("cookies.rds"))
   if (file.exists(f)) {
@@ -79,8 +93,13 @@ store_cookies <- function(cookies, jar = default_jar()) {
     # replace old cookies
     cookies_old <- cookies_old[!cookies_old$domain %in% cookies$domain, ]
     cookies <- vctrs::vec_rbind(cookies_old, cookies)
+  } else if (!confirm) {
+    askYesNo(msg = paste0(
+      "You are storing cookies for the first time. Is it okay to write them to ", f, "?"
+    ))
   }
   saveRDS(cookies, f, compress = FALSE)
+  cli::cli_alert_success("Cookies for {.emp {domains}} put in the jar!")
 }
 
 
