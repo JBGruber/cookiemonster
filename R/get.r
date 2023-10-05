@@ -100,7 +100,7 @@ prep_cookies <- function(tbl, as_list = FALSE) {
 
 
 select_cookies <- function(cookies, domain, key, fixed) {
-  if (domain > 1L) {
+  if (length(domain) > 1L) {
     cli::cli_abort("{.code domain} must be a string of length 1")
   }
 
