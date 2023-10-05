@@ -100,6 +100,10 @@ prep_cookies <- function(tbl, as_list = FALSE) {
 
 
 select_cookies <- function(cookies, domain, key, fixed) {
+  if (domain > 1L) {
+    cli::cli_abort("{.code domain} must be a string of length 1")
+  }
+
   if (isFALSE(fixed)) {
     sel <- grepl(domain, cookies$domain, perl = TRUE)
     sel[sel] <- grepl(key, cookies$name[sel], perl = TRUE) * sel[sel]

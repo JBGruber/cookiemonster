@@ -83,6 +83,7 @@ add_cookies <- function(cookiefile, cookiestring, domain = NULL, confirm = FALSE
 store_cookies <- function(cookies,
                           jar = default_jar(),
                           confirm = FALSE) {
+
   cookies$value <- encrypt_vec(cookies$value)
   cookies$domain <- urltools::domain(cookies$domain)
   domains <- toString(unique(cookies$domain))
