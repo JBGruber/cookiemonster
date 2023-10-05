@@ -4,18 +4,30 @@
 \alias{delete_cookies}
 \title{Delete Cookies}
 \usage{
-delete_cookies(domain, jar = default_jar(), ask = TRUE)
+delete_cookies(
+  domain,
+  key = "",
+  jar = default_jar(),
+  fixed = FALSE,
+  ask = TRUE
+)
 }
 \arguments{
 \item{domain}{The domain for which the cookies should be deleted.}
 
+\item{key}{An optional filter to retrieve only certain cookies by matching
+certain keys.}
+
 \item{jar}{A character string of the path to the cookie jar (the default is
 to use \code{default_jar()} to get a suitable directory).}
+
+\item{fixed}{If \code{TRUE}, code{domain} and \code{key} are matched as is.
+If either \code{domain} or \code{key}, only those values are treated as is.}
 
 \item{ask}{A logical value indicating whether the user should be asked to confirm the deletion.}
 }
 \value{
-Nothing
+Nothing. Called to remove cookies from jar.
 }
 \description{
 Delete Cookies

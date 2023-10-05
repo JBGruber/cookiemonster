@@ -94,7 +94,7 @@ store_cookies <- function(cookies,
     cookies_old <- cookies_old[!cookies_old$domain %in% cookies$domain, ]
     cookies <- vctrs::vec_rbind(cookies_old, cookies)
   } else if (!confirm) {
-    askYesNo(msg = paste0(
+    utils::askYesNo(msg = paste0(
       "You are storing cookies for the first time. Is it okay to write them to ", f, "?"
     ))
   }

@@ -22,7 +22,7 @@ delete_cookies <- function(domain,
   print(tibble::as_tibble(cookies[sel, c("domain", "name")]))
   choice <- TRUE
   if (ask) {
-    choice <- askYesNo(
+    choice <- utils::askYesNo(
       msg = "Are you sure that you want to delete these cookies?",
       default = FALSE
     )
