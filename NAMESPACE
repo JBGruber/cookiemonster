@@ -3,6 +3,7 @@
 export(add_cookies)
 export(decrypt_vec)
 export(default_jar)
+export(delete_cookies)
 export(encrypt_vec)
 export(get_cookies)
 export(store_cookies)

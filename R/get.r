@@ -84,10 +84,16 @@ get_cookies <- function(domain,
 #' @noRd
 prep_cookies <- function(tbl, as_list = FALSE) {
   if (nrow(tbl) > 0) {
-    if (!as_list) {
-      return(paste0(tbl$name, "=", tbl$value, collapse = "; "))
-    } else {
+    if (as_list) {
       return(stats::setNames(tbl$value, tbl$name))
+    } else {
+      return(paste0(tbl$name, "=", tbl$value, collapse = "; "))
+    }
+  } else {
+    if (as_list) {
+      return(list())
+    } else {
+      return("")
     }
   }
 }
