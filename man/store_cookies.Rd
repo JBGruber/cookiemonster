@@ -22,7 +22,8 @@ No return value, called to save (encrypted) cookies on disk.
 Store cookies in a jar
 }
 \examples{
-# to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+# to conform with CRAN policies, examples use a temporary location. Do not use
+# the options like this, except you want your cookies gone when closing R.
 options(cookie_dir = tempdir())
 
 if (requireNamespace("curl", quietly = TRUE)) {

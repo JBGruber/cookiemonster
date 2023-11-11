@@ -1,4 +1,6 @@
 test_that("multiplication works", {
+  jar <- options(cookie_dir = tempdir())
+  withr::defer(options(jar))
   expect_equal({
     add_cookies(cookiestring = "test=true; success=yes", domain = "tests.com")
     get_cookies("^tests.com", as = "string")

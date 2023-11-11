@@ -36,11 +36,13 @@ Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 more info.
 }
 \examples{
-# to conform with CRAN policies, examples use a temporary location. Do not use the options like this
+# to conform with CRAN policies, examples use a temporary location. Do not use
+# the options like this, except you want your cookies gone when closing R.
 options(cookie_dir = tempdir())
 
 # Using a cookie file:
-# Using the example `cookies.txt` file which contains the cookie details.
+# to conform with CRAN policies, examples use a temporary location. Do not use
+# the options like this, except you want your cookies gone when closing R.
 add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
 
 # Using a cookie string:

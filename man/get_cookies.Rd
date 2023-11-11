@@ -17,7 +17,8 @@ get_cookies(
 Accepts regular expression depending on the value of \code{fixed}.}
 
 \item{key}{An optional filter to retrieve only certain cookies by matching
-certain keys.}
+certain keys/names. Accepts regular expression depending on the value of
+\code{fixed}.}
 
 \item{jar}{A character string of the path to the cookie jar (the default is
 to use \code{default_jar()} to get a suitable directory).}

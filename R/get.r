@@ -7,7 +7,8 @@
 #' @param domain A character string of the domain to retrieve cookies for.
 #'   Accepts regular expression depending on the value of \code{fixed}.
 #' @param key An optional filter to retrieve only certain cookies by matching
-#'   certain keys.
+#'   certain keys/names. Accepts regular expression depending on the value of
+#'   \code{fixed}.
 #' @param jar A character string of the path to the cookie jar (the default is
 #'   to use \code{default_jar()} to get a suitable directory).
 #' @param as A character string of the type of output to return.

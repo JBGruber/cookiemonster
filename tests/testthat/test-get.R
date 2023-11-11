@@ -1,7 +1,6 @@
 test_that("getting cookies works", {
   jar <- options(cookie_dir = tempdir())
   withr::defer(options(jar))
-  withr::defer(unlink(file.path(tempdir(), paste0("cookies.rds"))))
 
   expect_error(get_cookies("tests.com"),
                "does not contain any cookies yet")
