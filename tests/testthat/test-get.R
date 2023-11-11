@@ -1,7 +1,7 @@
 test_that("getting cookies works", {
   jar <- options(cookie_dir = tempdir())
-  withr::defer(options(jar))
 
+  unlink(tempdir(), recursive = TRUE)
   expect_error(get_cookies("tests.com"),
                "does not contain any cookies yet")
 
