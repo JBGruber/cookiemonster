@@ -22,7 +22,7 @@ certain keys/names. Accepts regular expression depending on the value of
 \item{jar}{A character string of the path to the cookie jar (the default is
 to use \code{default_jar()} to get a suitable directory).}
 
-\item{fixed}{If \code{TRUE}, code{domain} and \code{key} are matched as is.
+\item{fixed}{If \code{TRUE}, \code{domain} and \code{key} are matched as is.
 If either \code{domain} or \code{key}, only those values are treated as is.}
 
 \item{ask}{A logical value indicating whether the user should be asked to
@@ -38,6 +38,7 @@ Delete Cookies
 # to conform with CRAN policies, examples use a temporary location. Do not use
 # the options like this, except you want your cookies gone when closing R.
 options(cookie_dir = tempdir())
+
 add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
 delete_cookies("example.com", ask = FALSE)
 }

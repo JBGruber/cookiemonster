@@ -12,7 +12,7 @@
 #' @param jar A character string of the path to the cookie jar (the default is
 #'   to use \code{default_jar()} to get a suitable directory).
 #' @param as A character string of the type of output to return.
-#' @param fixed If \code{TRUE}, code{domain} and \code{key} are matched as is.
+#' @param fixed If \code{TRUE}, \code{domain} and \code{key} are matched as is.
 #'   If either \code{domain} or \code{key}, only those values are treated as is.
 #' @returns Depending on the value of \code{as}, returns either a data frame, a
 #'   character string, or a named vector.

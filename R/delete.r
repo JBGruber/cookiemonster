@@ -12,6 +12,7 @@
 #' # to conform with CRAN policies, examples use a temporary location. Do not use
 #' # the options like this, except you want your cookies gone when closing R.
 #' options(cookie_dir = tempdir())
+#'
 #' add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
 #' delete_cookies("example.com", ask = FALSE)
 delete_cookies <- function(domain,

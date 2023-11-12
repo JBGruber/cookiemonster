@@ -25,7 +25,7 @@ to use \code{default_jar()} to get a suitable directory).}
 
 \item{as}{A character string of the type of output to return.}
 
-\item{fixed}{If \code{TRUE}, code{domain} and \code{key} are matched as is.
+\item{fixed}{If \code{TRUE}, \code{domain} and \code{key} are matched as is.
 If either \code{domain} or \code{key}, only those values are treated as is.}
 }
 \value{

@@ -1,6 +1,6 @@
 Package: cookiemonster
 Title: Your Friendly Solution to Managing Browser Cookies
-Version: 0.0.1.9000
+Version: 0.0.2
 Authors@R:
     person(given = "Johannes B.",
            family = "Gruber",
@@ -17,6 +17,9 @@ Depends:
     R (>= 4.0.0)
 Suggests: 
     curl,
+    httr,
+    httr2,
+    jsonlite,
     knitr,
     rmarkdown,
     spelling,
