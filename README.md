@@ -26,6 +26,12 @@ package](https://CRAN.R-project.org/package=cookies).
 
 ## Installation
 
+Install the package from CRAN with:
+
+``` r
+install.packages("cookiemonster")
+```
+
 You can install the development version of `cookiemonster` from
 [GitHub](https://github.com/) with:
 
@@ -98,6 +104,7 @@ this location, you can use:
 
 ``` r
 default_jar()
+#> [1] "~/.cache/r_cookies"
 ```
 
 If you want to change the default cookie storage location, you can set
@@ -106,6 +113,7 @@ the `cookie_dir` option:
 ``` r
 options(cookie_dir = tempdir())
 default_jar()
+#> [1] "/tmp/RtmpaZmtG5"
 ```
 
 To revert back to the original cookie storage location:
@@ -113,13 +121,23 @@ To revert back to the original cookie storage location:
 ``` r
 options(cookie_dir = NULL)
 default_jar()
+#> [1] "~/.cache/r_cookies"
 ```
 
 To retrieve cookies for a specific domain:
 
 ``` r
-get_cookies("https://hb.cran.dev")
+get_cookies("hb.cran.dev")
+#> # A tibble: 3 × 7
+#>   domain      flag  path  secure expiration name    value
+#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>   <chr>
+#> 1 hb.cran.dev FALSE /     FALSE  Inf Inf    test    true 
+#> 2 hb.cran.dev FALSE /     FALSE  Inf Inf    cookies allow
+#> 3 hb.cran.dev FALSE /     FALSE  Inf Inf    easy    true
 ```
+
+Note that his function uses regular expressions to match the domain by
+default.
 
 ## Using `cookiemonster` with other packages
 
@@ -130,11 +148,20 @@ Now let’s see how to use stored cookies with the `httr2` package:
 ``` r
 library(httr2)
 resp <- request("https://hb.cran.dev/cookies/set") |> # start a request
-  req_options(cookie = get_cookies("https://hb.cran.dev", as = "string")) |> # add cookies to be sent with it
+  req_options(cookie = get_cookies("hb.cran.dev", as = "string")) |> # add cookies to be sent with it
   req_perform() # perform the request
 
 resp |> 
   resp_body_json()
+#> $cookies
+#> $cookies$cookies
+#> [1] "allow"
+#> 
+#> $cookies$easy
+#> [1] "true"
+#> 
+#> $cookies$test
+#> [1] "true"
 ```
 
 As you can see, the individual cookie values we see above are returned
@@ -148,7 +175,19 @@ To use stored cookies with the legacy `httr` package:
 
 ``` r
 library(httr)
-GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("https://hb.cran.dev", as = "vector")))
+GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
+#> Response [https://hb.cran.dev/cookies]
+#>   Date: 2023-11-12 19:54
+#>   Status: 200
+#>   Content-Type: application/json
+#>   Size: 88 B
+#> {
+#>   "cookies": {
+#>     "cookies": "allow", 
+#>     "easy": "true", 
+#>     "test": "true"
+#>   }
+#> }
 ```
 
 This code uses the ‘httr’ library to set cookies from the
@@ -166,9 +205,18 @@ the same request as above, we can use this code:
 ``` r
 library(curl)
 h <- new_handle()
-handle_setopt(h, cookie = get_cookies("https://hb.cran.dev", as = "string"))
+handle_setopt(h, cookie = get_cookies("hb.cran.dev", as = "string"))
 resp <- curl_fetch_memory("https://hb.cran.dev/cookies/set", handle = h)
 jsonlite::fromJSON(rawToChar(resp$content))
+#> $cookies
+#> $cookies$cookies
+#> [1] "allow"
+#> 
+#> $cookies$easy
+#> [1] "true"
+#> 
+#> $cookies$test
+#> [1] "true"
 ```
 
 If the `curl` response contains new cookies:
@@ -177,6 +225,8 @@ If the `curl` response contains new cookies:
 h2 <- new_handle()
 resp <- curl_fetch_memory("https://hb.cran.dev/cookies/set?new_cookies=moo", handle = h2)
 handle_cookies(h2)
+#>        domain  flag path secure expiration        name value
+#> 1 hb.cran.dev FALSE    /  FALSE        Inf new_cookies   moo
 ```
 
 Use `store_cookies` to store them in your jar:
@@ -184,7 +234,11 @@ Use `store_cookies` to store them in your jar:
 ``` r
 new_cookies <- handle_cookies(h2)
 store_cookies(new_cookies)
-get_cookies("https://hb.cran.dev")
+get_cookies("hb.cran.dev")
+#> # A tibble: 1 × 7
+#>   domain      flag  path  secure expiration name        value
+#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>       <chr>
+#> 1 hb.cran.dev FALSE /     FALSE  Inf Inf    new_cookies moo
 ```
 
 Keep in mind that adding cookies for a domain will replace all

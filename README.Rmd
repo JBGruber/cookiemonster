@@ -30,6 +30,12 @@ If you are looking for a way to use cookies in shiny apps you can check out the 
 
 ## Installation
 
+Install the package from CRAN with:
+
+``` r
+install.packages("cookiemonster")
+```
+
 You can install the development version of `cookiemonster` from
 [GitHub](https://github.com/) with:
 
