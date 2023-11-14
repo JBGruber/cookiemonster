@@ -17,11 +17,14 @@ Depends:
     R (>= 4.0.0)
 Suggests: 
     curl,
+    DBI,
+    dplyr,
     httr,
     httr2,
     jsonlite,
     knitr,
     rmarkdown,
+    RSQLite,
     spelling,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
@@ -29,6 +32,7 @@ Imports:
     cli,
     openssl,
     rappdirs,
+    rlang,
     stringi,
     tibble,
     urltools,
