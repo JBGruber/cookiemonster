@@ -1,6 +1,6 @@
 Package: cookiemonster
 Title: Your Friendly Solution to Managing Browser Cookies
-Version: 0.0.2
+Version: 0.0.2.9000
 Authors@R:
     person(given = "Johannes B.",
            family = "Gruber",
@@ -35,3 +35,4 @@ Imports:
     vctrs
 Config/testthat/edition: 3
 Language: en-GB
+LazyData: true

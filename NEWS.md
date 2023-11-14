@@ -1,3 +1,5 @@
+# cookiemonster 0.0.3
+
 # cookiemonster 0.0.2
 
 * adds delete cookies function
