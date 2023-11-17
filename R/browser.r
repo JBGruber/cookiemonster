@@ -30,8 +30,10 @@ get_cookies_from_browser <- function(browser = "Firefox") {
 #' @importFrom rlang .data
 #' @noRd
 find_cookiejar <- function(browser) {
-  sel <- cookie_dirs[cookie_dirs$browser == browser &
-                       cookie_dirs$os == Sys.info()["sysname"], ]
+  sel <- dplyr::filter(
+    cookie_dirs,
+    .data$browser == browser &
+      .data$os == Sys.info()["sysname"])
   p1 <- Sys.getenv(sel$env)
   if (any(p1 != "")) {
     paths <- file.path(p1, sel$path)
@@ -48,7 +50,7 @@ find_cookiejar <- function(browser) {
 read_cookie_db <- function(db_file, browser) {
   data_loc <- db_file
   temp_data_loc <- file.path(tempdir(), basename(data_loc))
-  file.copy(data_loc, temp_data_loc)
+  file.copy(data_loc, temp_data_loc, overwrite = TRUE)
   db <- list(conn = DBI::dbConnect(RSQLite::SQLite(), temp_data_loc))
   class(db) <- c(tolower(browser), class(db))
   prep_db(db)
@@ -67,6 +69,7 @@ prep_db <- function(db_conn) {
 prep_db.firefox <- function(db_conn) {
   cookies <- DBI::dbReadTable(db_conn$conn, "moz_cookies") |>
     tibble::as_tibble()
+  DBI::dbDisconnect(db_conn$conn)
   dplyr::rename(cookies,
                 domain = .data$host,
                 flag = .data$sameSite,

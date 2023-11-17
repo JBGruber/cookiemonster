@@ -27,6 +27,7 @@ test_that("setting cookies works", {
                                package = "cookiemonster"))
     writeLines(l[5:7], "test.txt")
     add_cookies(cookiefile = "test.txt")
+    unlink("test.txt")
   }, "not seem to be a valid cookiefile")
 
   expect_error(add_cookies(cookiestring = "test=true; success=yes"),
