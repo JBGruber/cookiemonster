@@ -88,7 +88,7 @@ store_cookies <- function(cookies,
                           confirm = FALSE) {
 
   cookies$value <- encrypt_vec(cookies$value)
-  cookies$domain <- urltools::domain(cookies$domain)
+  cookies$domain <- url_get_domain(cookies$domain)
   domains <- toString(unique(cookies$domain))
   dir.create(jar, showWarnings = FALSE, recursive = TRUE)
   f <- file.path(jar, paste0("cookies.rds"))
@@ -150,7 +150,7 @@ read_cookiefile <- function(cookiefile) {
   colnames(df) <- c(
     "domain", "flag", "path", "secure", "expiration", "name", "value"
   )
-  df$domain <- urltools::domain(sub("^\\.", "", df$domain))
+  df$domain <- url_get_domain(sub("^\\.", "", df$domain))
   df$expiration <- as.POSIXct.numeric(df$expiration, origin = "1970-01-01")
   return(tibble::as_tibble(df))
 
@@ -165,7 +165,7 @@ parse_cookiestring <- function(cookiestring, domain) {
   cookiestring <- stringi::stri_replace_first_regex(cookiestring, "^Cookie:\\s*", "")
   cookiestring <- stringi::stri_split_fixed(cookiestring, pattern = "; ")[[1]]
   tibble::tibble(
-    domain = urltools::domain(domain),
+    domain = url_get_domain(domain),
     flag = NA,
     path = NA,
     secure = NA,
