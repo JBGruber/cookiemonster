@@ -1,8 +1,7 @@
 # Submission
 
-The package was archived on 28-09-2023 because one test left behind a file in the user's cache by accident.
-I found which test caused the policy violation and fixed the behaviour.
-I verified this in a Docker container.
+This fixes a tiny bug with unconventional domain names, such as
+#HttpOnly_.tiktok.com, which can not normally be parsed by urltools.
 
 ## R CMD check results
 
