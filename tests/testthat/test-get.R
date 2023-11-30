@@ -37,6 +37,36 @@ test_that("getting cookies works", {
     add_cookies(cookiestring = "test=true; success=yes", domain = "tests.com")
     get_cookies("^tests.com", as = "vector")
   }, c(test = "true", success = "yes"))
+
+  expect_equal({
+    get_cookies("^$", as = "vector")
+  }, list())
+
+  expect_equal({
+    get_cookies("^$", as = "string")
+  }, "")
+
 })
 
+test_that("fixed selection works", {
+  expect_equal({
+    add_cookies(cookiestring = "test=true; success=yes", domain = "tests_nl.com")
+    get_cookies(domain = "tests.nl", key = "succe*", as = "string", fixed = "domain")
+  }, "")
+
+  expect_equal({
+    add_cookies(cookiestring = "test=true; success=yes", domain = "tests_nl.com")
+    get_cookies(domain = "tests.nl", key = "succe*", as = "string", fixed = FALSE)
+  }, "success=yes")
+
+  expect_equal({
+    add_cookies(cookiestring = "test=true; success=yes", domain = "tests_nl.com")
+    get_cookies(domain = "tests_nl", key = "succe*", as = "string", fixed = "key")
+  }, "")
+
+  expect_equal({
+    add_cookies(cookiestring = "test=true; success=yes", domain = "tests_nl.com")
+    get_cookies(domain = "tests_nl", key = "succe*", as = "string", fixed = "domain")
+  }, "success=yes")
+})
 

@@ -1,5 +1,7 @@
 # cookiemonster 0.0.3
 
+* fixes issue with "HTTPonly" cookies
+
 # cookiemonster 0.0.2
 
 * adds delete cookies function
