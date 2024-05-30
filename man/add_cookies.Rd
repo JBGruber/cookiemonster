@@ -4,13 +4,16 @@
 \alias{add_cookies}
 \title{Add Cookies to the Browser}
 \usage{
-add_cookies(cookiefile, cookiestring, domain = NULL, confirm = FALSE)
+add_cookies(cookiefile, cookiestring, session, domain = NULL, confirm = FALSE)
 }
 \arguments{
 \item{cookiefile}{A character string indicating the path to the cookie file.}
 
 \item{cookiestring}{A character string representing the cookie in string
 format.}
+
+\item{session}{A live html session created with \link[rvest]{read_html_live}
+(only version >= 1.0.4).}
 
 \item{domain}{An optional parameter that specifies the host/domain. It's only
 used when \code{cookiestring} is provided.}

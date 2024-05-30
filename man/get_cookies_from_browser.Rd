@@ -14,7 +14,7 @@ Defaults to "Firefox".}
 A tibble containing the cookies from the specified browser.
 }
 \description{
-Retrieves all cookies from a Browser
+Retrieves all cookies from a Browser (currently works with Firefox only).
 }
 \examples{
 \dontrun{

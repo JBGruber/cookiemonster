@@ -1,6 +1,6 @@
 #' Get Cookies from Browser
 #'
-#' Retrieves all cookies from a Browser
+#' Retrieves all cookies from a Browser (currently works with Firefox only).
 #'
 #' @param browser A character string specifying the browser to get cookies from.
 #'   Defaults to "Firefox".
