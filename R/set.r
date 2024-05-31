@@ -49,7 +49,7 @@ add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confir
   } else if (!missing(cookiestring)) {
     cookies <- parse_cookiestring(cookiestring, domain = domain)
   } else if (!missing(session)) {
-    cookies <- parse_session(cookiestringn)
+    cookies <- parse_session(session)
   } else {
     cli::cli_abort("You must provide either a cookie file, cookie string or a live html session.")
   }
@@ -188,5 +188,6 @@ parse_session <- function(sess) {
   }
   cookies <- sess$session$Network$getCookies()
   dplyr::bind_rows(cookies) |>
-    dplyr::select(domain, flag = sameParty, path, secure, expiration = expires, name, value)
+    dplyr::mutate(expiration = as.POSIXct(expires)) |>
+    dplyr::select(domain, flag = sameParty, path, secure, expiration, name, value)
 }
