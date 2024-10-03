@@ -13,7 +13,7 @@ test_that("setting cookies works", {
 
   expect_error(
     add_cookies(),
-    "either cookie file or string"
+    "You.must.provide.either"
   )
 
   expect_gte({

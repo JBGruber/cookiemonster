@@ -71,10 +71,10 @@ prep_db.firefox <- function(db_conn) {
     tibble::as_tibble()
   DBI::dbDisconnect(db_conn$conn)
   dplyr::rename(cookies,
-                domain = .data$host,
-                flag = .data$sameSite,
-                secure = .data$isSecure,
-                expiration = .data$expiry
+                domain = "host",
+                flag = "sameSite",
+                secure = "isSecure",
+                expiration = "expiry"
   )
 }
 

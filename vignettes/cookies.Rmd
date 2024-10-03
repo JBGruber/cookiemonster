@@ -71,6 +71,21 @@ add_cookies(
 )
 ```
 
+If you are working with `rvest` version 1.0.4 or above, you might also know about live browser sessions:
+
+```{r eval=FALSE}
+sess <- rvest::read_html_live("https://vu.nl")
+```
+
+You can actually open a browser using `sess$view()`.
+To save the cookies from this session, e.g., after logging in on a website, simply run:
+
+```{r eval=FALSE}
+add_cookies(session = sess)
+#> ✔ Cookies for vu.nl put in the jar!
+```
+
+
 ## Default Cookie Storage
 
 The `cookiemonster` package stores cookies in a default location.

@@ -1,10 +1,11 @@
 CMD
 Codecov
-Lifecycle
+HTTPonly
 Renviron
 cookiefile
 cookiestring
 httr
 httr’
+rvest
 tibble
 ’

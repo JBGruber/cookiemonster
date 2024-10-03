@@ -5,8 +5,6 @@
 
 <!-- badges: start -->
 
-[![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/cookiemonster)](https://CRAN.R-project.org/package=cookiemonster)
 [![R-CMD-check](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml)
@@ -97,6 +95,20 @@ Now, let’s add the cookies from the file to our cookie jar:
 add_cookies(cookiefile = "cookies.txt")
 ```
 
+If you are working with `rvest` version 1.0.4 or above, you might also
+know about live browser sessions:
+
+``` r
+sess <- rvest::read_html_live("https://vu.nl")
+```
+
+You can actually open a browser using `sess$view()`. To save the cookies
+from this session, e.g., after logging in on a website, simply run:
+
+``` r
+add_cookies(session = sess)
+```
+
 ## Default Cookie Storage
 
 The `cookiemonster` package stores cookies in a default location. To see
@@ -113,7 +125,7 @@ the `cookie_dir` option:
 ``` r
 options(cookie_dir = tempdir())
 default_jar()
-#> [1] "/tmp/RtmpaZmtG5"
+#> [1] "/tmp/RtmpMiIOsL"
 ```
 
 To revert back to the original cookie storage location:
@@ -177,7 +189,7 @@ To use stored cookies with the legacy `httr` package:
 library(httr)
 GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
 #> Response [https://hb.cran.dev/cookies]
-#>   Date: 2023-11-12 19:54
+#>   Date: 2024-10-03 17:49
 #>   Status: 200
 #>   Content-Type: application/json
 #>   Size: 88 B

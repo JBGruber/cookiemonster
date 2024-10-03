@@ -42,7 +42,7 @@
 #' @export
 add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confirm = FALSE) {
 
-  if (!missing(cookiefile) & !missing(cookiestring) & !missing(session)) {
+  if (sum(!missing(cookiefile), !missing(cookiestring), !missing(session)) > 1) {
     cli::cli_abort("This function can either handle a cookie file or string, not both")
   } else if (!missing(cookiefile)) {
     cookies <- read_cookiefile(cookiefile)
@@ -187,7 +187,12 @@ parse_session <- function(sess) {
     cli::cli_abort("{.code sess} must be an object created by {.code rvest::read_html_live()}.")
   }
   cookies <- sess$session$Network$getCookies()
-  dplyr::bind_rows(cookies) |>
-    dplyr::mutate(expiration = as.POSIXct(expires)) |>
-    dplyr::select(domain, flag = sameParty, path, secure, expiration, name, value)
+  out <- dplyr::bind_rows(cookies)
+  if (nrow(out) > 0) {
+    out <- out |>
+      dplyr::mutate(expiration = as.POSIXct(.data$expires)) |>
+      dplyr::select("domain", flag = "sameParty", "path", "secure",
+                    "expiration", "name", "value")
+  }
+  return(out)
 }
