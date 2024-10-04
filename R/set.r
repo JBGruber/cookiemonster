@@ -8,6 +8,8 @@
 #' @param cookiefile A character string indicating the path to the cookie file.
 #' @param cookiestring A character string representing the cookie in string
 #'   format.
+#' @param session A live html session created with \link[rvest]{read_html_live}
+#'   (only version >= 1.0.4).
 #' @param domain An optional parameter that specifies the host/domain. It's only
 #'   used when `cookiestring` is provided.
 #' @param confirm If \code{TRUE}, you confirm to write the cookie jar to disk
@@ -38,16 +40,18 @@
 #' @seealso \code{\link{store_cookies}}
 #'
 #' @export
-add_cookies <- function(cookiefile, cookiestring, domain = NULL, confirm = FALSE) {
+add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confirm = FALSE) {
 
-  if (!missing(cookiefile) & !missing(cookiestring)) {
+  if (sum(!missing(cookiefile), !missing(cookiestring), !missing(session)) > 1) {
     cli::cli_abort("This function can either handle a cookie file or string, not both")
   } else if (!missing(cookiefile)) {
     cookies <- read_cookiefile(cookiefile)
   } else if (!missing(cookiestring)) {
     cookies <- parse_cookiestring(cookiestring, domain = domain)
+  } else if (!missing(session)) {
+    cookies <- parse_session(session)
   } else {
-    cli::cli_abort("You must provide either cookie file or string.")
+    cli::cli_abort("You must provide either a cookie file, cookie string or a live html session.")
   }
 
   store_cookies(cookies, confirm = confirm)
@@ -175,3 +179,20 @@ parse_cookiestring <- function(cookiestring, domain) {
   )
 }
 
+
+#' parse a live html session
+#' @noRd
+parse_session <- function(sess) {
+  if (!inherits(sess, "LiveHTML")) {
+    cli::cli_abort("{.code sess} must be an object created by {.code rvest::read_html_live()}.")
+  }
+  cookies <- sess$session$Network$getCookies()
+  out <- dplyr::bind_rows(cookies)
+  if (nrow(out) > 0) {
+    out <- out |>
+      dplyr::mutate(expiration = as.POSIXct(.data$expires)) |>
+      dplyr::select("domain", flag = "sameParty", "path", "secure",
+                    "expiration", "name", "value")
+  }
+  return(out)
+}
