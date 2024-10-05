@@ -89,10 +89,32 @@ file.copy(
 )
 ```
 
-Now, let’s add the cookies from the file to our cookie jar:
+This is how the file looks like:
+
+``` r
+readLines("cookies.txt") |> 
+  cat(sep = "\n")
+#> # Netscape HTTP Cookie File
+#> # http://curl.haxx.se/rfc/cookie_spec.html
+#> # This is a generated file!  Do not edit.
+#> 
+#> hb.cran.dev  FALSE   /   FALSE   Inf test    true
+#> hb.cran.dev  FALSE   /   FALSE   Inf cookies allow
+#> hb.cran.dev  FALSE   /   FALSE   Inf easy    true
+```
+
+Now, let’s add the cookies from this file to our cookie jar:
 
 ``` r
 add_cookies(cookiefile = "cookies.txt")
+```
+
+You can also import cookies directly from your browser (only works with
+Firefox at the moment):
+
+``` r
+cookies <- get_cookies_from_browser(browser = "Firefox") 
+store_cookies(cookies)
 ```
 
 If you are working with `rvest` version 1.0.4 or above, you might also
@@ -107,6 +129,7 @@ from this session, e.g., after logging in on a website, simply run:
 
 ``` r
 add_cookies(session = sess)
+#> ✔ Cookies for vu.nl put in the jar!
 ```
 
 ## Default Cookie Storage
@@ -125,7 +148,7 @@ the `cookie_dir` option:
 ``` r
 options(cookie_dir = tempdir())
 default_jar()
-#> [1] "/tmp/RtmpMiIOsL"
+#> [1] "/tmp/Rtmphg8Ixy"
 ```
 
 To revert back to the original cookie storage location:
@@ -141,11 +164,11 @@ To retrieve cookies for a specific domain:
 ``` r
 get_cookies("hb.cran.dev")
 #> # A tibble: 3 × 7
-#>   domain      flag  path  secure expiration name    value
-#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>   <chr>
-#> 1 hb.cran.dev FALSE /     FALSE  Inf Inf    test    true 
-#> 2 hb.cran.dev FALSE /     FALSE  Inf Inf    cookies allow
-#> 3 hb.cran.dev FALSE /     FALSE  Inf Inf    easy    true
+#>   domain       flag path  secure expiration name    value
+#>   <chr>       <int> <chr>  <int> <dttm>     <chr>   <chr>
+#> 1 hb.cran.dev     0 /          0 Inf Inf    test    true 
+#> 2 hb.cran.dev     0 /          0 Inf Inf    cookies allow
+#> 3 hb.cran.dev     0 /          0 Inf Inf    easy    true
 ```
 
 Note that his function uses regular expressions to match the domain by
@@ -189,7 +212,7 @@ To use stored cookies with the legacy `httr` package:
 library(httr)
 GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
 #> Response [https://hb.cran.dev/cookies]
-#>   Date: 2024-10-03 17:49
+#>   Date: 2024-10-05 08:58
 #>   Status: 200
 #>   Content-Type: application/json
 #>   Size: 88 B
@@ -248,9 +271,9 @@ new_cookies <- handle_cookies(h2)
 store_cookies(new_cookies)
 get_cookies("hb.cran.dev")
 #> # A tibble: 1 × 7
-#>   domain      flag  path  secure expiration name        value
-#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>       <chr>
-#> 1 hb.cran.dev FALSE /     FALSE  Inf Inf    new_cookies moo
+#>   domain       flag path  secure expiration name        value
+#>   <chr>       <int> <chr>  <int> <dttm>     <chr>       <chr>
+#> 1 hb.cran.dev     0 /          0 Inf Inf    new_cookies moo
 ```
 
 Keep in mind that adding cookies for a domain will replace all

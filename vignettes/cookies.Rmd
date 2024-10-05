@@ -19,6 +19,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   eval = TRUE
 )
+# write to a temporary jar
 options(cookie_dir = tempdir())
 is_available <- function(p) requireNamespace(p, quietly = TRUE)
 curl_available <- is_available("curl")
@@ -58,7 +59,14 @@ file.copy(
 )
 ```
 
-Now, let's add the cookies from the file to our cookie jar:
+This is how the file looks like:
+
+```{r}
+readLines("cookies.txt") |> 
+  cat(sep = "\n")
+```
+
+Now, let's add the cookies from this file to our cookie jar:
 
 ```{r eval=FALSE}
 add_cookies(cookiefile = "cookies.txt")
@@ -70,6 +78,14 @@ add_cookies(
   confirm = TRUE
 )
 ```
+
+You can also import cookies directly from your browser (only works with Firefox at the moment):
+
+```{r}
+cookies <- get_cookies_from_browser(browser = "Firefox") 
+store_cookies(cookies)
+```
+
 
 If you are working with `rvest` version 1.0.4 or above, you might also know about live browser sessions:
 

@@ -23,7 +23,9 @@ get_cookies_from_browser <- function(browser = "Firefox") {
   lapply(cookie_db_file, read_cookie_db, browser = browser) |>
     dplyr::bind_rows() |>
     dplyr::distinct(.data$domain, .data$flag, .data$path, .data$secure,
-                    .data$expiration, .data$name, .data$value)
+                    .data$expiration, .data$name, .data$value) |>
+    # expiration is stored in integer64
+    dplyr::mutate(expiration = as.POSIXct.numeric(as.numeric(.data$expiration)))
 }
 
 
