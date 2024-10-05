@@ -61,8 +61,14 @@ file.copy(
 
 This is how the file looks like:
 
-```{r}
+```{r eval=FALSE}
 readLines("cookies.txt") |> 
+  cat(sep = "\n")
+```
+
+```{r echo=FALSE}
+system.file("extdata", "cookies.txt", package = "cookiemonster") |> 
+  readLines() |> 
   cat(sep = "\n")
 ```
 
