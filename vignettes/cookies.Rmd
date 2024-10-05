@@ -81,7 +81,7 @@ add_cookies(
 
 You can also import cookies directly from your browser (only works with Firefox at the moment):
 
-```{r}
+```{r eval=FALSE}
 cookies <- get_cookies_from_browser(browser = "Firefox") 
 store_cookies(cookies)
 ```
