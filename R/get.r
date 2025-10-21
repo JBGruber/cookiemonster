@@ -23,6 +23,7 @@
 #'   \item{\strong{data.frame:}} is how cookies are stored internally and can be used for manual inspection.
 #'   \item{\strong{string:}} is used by \code{curl} and \code{httr2}.
 #'   \item{\strong{vector:}} is used by \code{httr}.
+#'   \item{\strong{list:}} is used by \code{chromote}.
 #' }
 #'
 #'   See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
@@ -53,7 +54,7 @@
 get_cookies <- function(domain,
                         key = "",
                         jar = default_jar(),
-                        as = c("data.frame", "string", "vector"),
+                        as = c("data.frame", "string", "vector", "list"),
                         fixed = FALSE) {
 
   as <- match.arg(as)
@@ -75,7 +76,8 @@ get_cookies <- function(domain,
     as,
     "data.frame" = return(out),
     "string" = return(prep_cookies(out)),
-    "vector" = return(prep_cookies(out, as_list = TRUE))
+    "vector" = return(prep_cookies(out, as_list = TRUE)),
+    "list" = return(prep_cookies_chromote(out))
   )
 
 }
@@ -97,6 +99,16 @@ prep_cookies <- function(tbl, as_list = FALSE) {
       return("")
     }
   }
+}
+
+
+#' prepare the cookie df for usage in chromote
+#' @noRd
+prep_cookies_chromote <- function(tbl) {
+  tbl$httpOnly <- FALSE
+  tbl$expires <- as.integer(tbl$expiration)
+  tbl$expiration <- NULL
+  lapply(seq_len(nrow(tbl)), function(i) as.list(tbl[i, ]))
 }
 
 

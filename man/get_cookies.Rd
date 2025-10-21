@@ -8,7 +8,7 @@ get_cookies(
   domain,
   key = "",
   jar = default_jar(),
-  as = c("data.frame", "string", "vector"),
+  as = c("data.frame", "string", "vector", "list"),
   fixed = FALSE
 )
 }
@@ -44,6 +44,7 @@ The function returns cookies in one of three formats:
 \item{\strong{data.frame:}} is how cookies are stored internally and can be used for manual inspection.
 \item{\strong{string:}} is used by \code{curl} and \code{httr2}.
 \item{\strong{vector:}} is used by \code{httr}.
+\item{\strong{list:}} is used by \code{chromote}.
 }
 
 See \code{vignette("cookies", "cookiemonster")} for how to use cookies with

@@ -39,6 +39,13 @@ test_that("getting cookies works", {
   }, c(test = "true", success = "yes"))
 
   expect_equal({
+    add_cookies(cookiestring = "test=true", domain = "tests.com")
+    get_cookies("^tests.com", as = "list")
+  }, list(list(domain = "tests.com", flag = NA, path = NA,
+               secure = NA, name = "test", value = "true", httpOnly = FALSE,
+               expires = NA_integer_)))
+
+  expect_equal({
     get_cookies("^$", as = "vector")
   }, list())
 
