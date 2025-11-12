@@ -39,3 +39,5 @@ Imports:
     vctrs
 Config/testthat/edition: 3
 Language: en-GB
+URL: https://github.com/JBGruber/cookiemonster
+BugReports: https://github.com/JBGruber/cookiemonster/issues
