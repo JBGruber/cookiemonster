@@ -1,6 +1,6 @@
 Package: cookiemonster
 Title: Your Friendly Solution to Managing Browser Cookies
-Version: 0.0.3.9000
+Version: 0.0.4
 Authors@R:
     person(given = "Johannes B.",
            family = "Gruber",
