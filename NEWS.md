@@ -2,6 +2,7 @@
 
 * adds support for cookies from rvest::read_html_live sessions
 * support to read cookies from Firefox
+* adds req_cookiemonster_set to use with httr2
 
 # cookiemonster 0.0.3
 

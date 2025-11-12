@@ -94,14 +94,15 @@ This is how the file looks like:
 ``` r
 readLines("cookies.txt") |> 
   cat(sep = "\n")
-#> # Netscape HTTP Cookie File
-#> # http://curl.haxx.se/rfc/cookie_spec.html
-#> # This is a generated file!  Do not edit.
-#> 
-#> hb.cran.dev  FALSE   /   FALSE   Inf test    true
-#> hb.cran.dev  FALSE   /   FALSE   Inf cookies allow
-#> hb.cran.dev  FALSE   /   FALSE   Inf easy    true
 ```
+
+    #> # Netscape HTTP Cookie File
+    #> # http://curl.haxx.se/rfc/cookie_spec.html
+    #> # This is a generated file!  Do not edit.
+    #> 
+    #> hb.cran.dev  FALSE   /   FALSE   Inf test    true
+    #> hb.cran.dev  FALSE   /   FALSE   Inf cookies allow
+    #> hb.cran.dev  FALSE   /   FALSE   Inf easy    true
 
 Now, let’s add the cookies from this file to our cookie jar:
 
@@ -148,7 +149,7 @@ the `cookie_dir` option:
 ``` r
 options(cookie_dir = tempdir())
 default_jar()
-#> [1] "/tmp/Rtmphg8Ixy"
+#> [1] "/tmp/RtmpTS3Qvg"
 ```
 
 To revert back to the original cookie storage location:
@@ -164,11 +165,11 @@ To retrieve cookies for a specific domain:
 ``` r
 get_cookies("hb.cran.dev")
 #> # A tibble: 3 × 7
-#>   domain       flag path  secure expiration name    value
-#>   <chr>       <int> <chr>  <int> <dttm>     <chr>   <chr>
-#> 1 hb.cran.dev     0 /          0 Inf Inf    test    true 
-#> 2 hb.cran.dev     0 /          0 Inf Inf    cookies allow
-#> 3 hb.cran.dev     0 /          0 Inf Inf    easy    true
+#>   domain      flag  path  secure expiration name    value
+#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>   <chr>
+#> 1 hb.cran.dev FALSE /     FALSE  Inf        test    true 
+#> 2 hb.cran.dev FALSE /     FALSE  Inf        cookies allow
+#> 3 hb.cran.dev FALSE /     FALSE  Inf        easy    true
 ```
 
 Note that his function uses regular expressions to match the domain by
@@ -199,6 +200,27 @@ resp |>
 #> [1] "true"
 ```
 
+For convenience, there is also a shorthand that automatically uses all
+cookies for the domain in the `request`:
+
+``` r
+resp <- request("https://hb.cran.dev/cookies/set") |> # start a request
+  req_cookiemonster_set() |> # add cookies to be sent with it
+  req_perform() # perform the request
+
+resp |> 
+  resp_body_json()
+#> $cookies
+#> $cookies$cookies
+#> [1] "allow"
+#> 
+#> $cookies$easy
+#> [1] "true"
+#> 
+#> $cookies$test
+#> [1] "true"
+```
+
 As you can see, the individual cookie values we see above are returned
 correctly. This is because the server at <https://hb.cran.dev> is
 configured to echo requests send to it. It shows us that the correct
@@ -212,7 +234,7 @@ To use stored cookies with the legacy `httr` package:
 library(httr)
 GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
 #> Response [https://hb.cran.dev/cookies]
-#>   Date: 2024-10-05 08:58
+#>   Date: 2025-11-12 21:50
 #>   Status: 200
 #>   Content-Type: application/json
 #>   Size: 88 B
@@ -271,9 +293,9 @@ new_cookies <- handle_cookies(h2)
 store_cookies(new_cookies)
 get_cookies("hb.cran.dev")
 #> # A tibble: 1 × 7
-#>   domain       flag path  secure expiration name        value
-#>   <chr>       <int> <chr>  <int> <dttm>     <chr>       <chr>
-#> 1 hb.cran.dev     0 /          0 Inf Inf    new_cookies moo
+#>   domain      flag  path  secure expiration name        value
+#>   <chr>       <lgl> <chr> <lgl>  <dttm>     <chr>       <chr>
+#> 1 hb.cran.dev FALSE /     FALSE  Inf        new_cookies moo
 ```
 
 Keep in mind that adding cookies for a domain will replace all

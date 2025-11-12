@@ -164,6 +164,18 @@ resp |>
   resp_body_json()
 ```
 
+For convenience, there is also a shorthand that automatically uses all cookies for the domain in the `request`:
+
+```{r eval=httr2_available}
+resp <- request("https://hb.cran.dev/cookies/set") |> # start a request
+  req_cookiemonster_set() |> # add cookies to be sent with it
+  req_perform() # perform the request
+
+resp |> 
+  resp_body_json()
+```
+
+
 As you can see, the individual cookie values we see above are returned correctly.
 This is because the server at https://hb.cran.dev is configured to echo requests send to it.
 It shows us that the correct cookies were send (hooray!).
