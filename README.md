@@ -7,6 +7,7 @@
 
 [![CRAN
 status](https://www.r-pkg.org/badges/version/cookiemonster)](https://CRAN.R-project.org/package=cookiemonster)
+[![CRAN_Download_Badge](https://cranlogs.r-pkg.org/badges/grand-total/cookiemonster)](https://cran.r-project.org/package=cookiemonster)
 [![R-CMD-check](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/JBGruber/cookiemonster/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/JBGruber/cookiemonster/branch/main/graph/badge.svg)](https://app.codecov.io/gh/JBGruber/cookiemonster?branch=main)
