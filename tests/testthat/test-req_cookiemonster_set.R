@@ -4,7 +4,7 @@ test_that("setting cookies works", {
   expect_equal({
     domain <- httr2::url_parse(httr2::example_url())$hostname
     add_cookies(cookiestring = "snicker=doodle; password=secret", domain = domain)
-    httr2::request(example_url()) |>
+    httr2::request(httr2::example_url()) |>
       httr2::req_url_path("/cookies/set") |>
       req_cookiemonster_set() |>
       httr2::req_perform() |>
