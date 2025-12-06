@@ -1,3 +1,5 @@
+# cookiemonster (development version)
+
 # cookiemonster 0.1.0
 
 * Fixes issues in tests
