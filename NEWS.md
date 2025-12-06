@@ -1,3 +1,7 @@
+# cookiemonster 0.1.0
+
+* Fixes issues in tests
+
 # cookiemonster 0.0.4
 
 * adds support for cookies from rvest::read_html_live sessions
