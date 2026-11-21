@@ -154,7 +154,7 @@ read_cookiefile <- function(cookiefile) {
   colnames(df) <- c(
     "domain", "flag", "path", "secure", "expiration", "name", "value"
   )
-  df$domain <- url_get_domain(sub("^\\.", "", df$domain))
+  df$domain <- url_get_domain(df$domain)
   df$expiration <- as.POSIXct.numeric(df$expiration, origin = "1970-01-01")
   return(tibble::as_tibble(df))
 

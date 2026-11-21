@@ -49,6 +49,10 @@ The function returns cookies in one of three formats:
 
 See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
 these packages.
+
+If any of the retrieved cookies are past their expiration date, a warning
+is issued, since websites usually reject expired cookies. Session cookies
+(which have no expiration date) never trigger this warning.
 }
 \note{
 Your cookies are saved in an encrypted file. See \link{encrypt_vec} for

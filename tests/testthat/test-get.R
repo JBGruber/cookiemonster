@@ -77,3 +77,24 @@ test_that("fixed selection works", {
   }, "success=yes")
 })
 
+
+test_that("expired cookies trigger a warning", {
+  jar <- file.path(tempdir(), "expired_jar")
+  on.exit(unlink(jar, recursive = TRUE))
+  cookies <- tibble::tibble(
+    domain = "expired.com",
+    flag = TRUE,
+    path = "/",
+    secure = TRUE,
+    expiration = as.POSIXct.numeric(
+      c(1, 0, -1, NA, as.numeric(Sys.time()) + 3600), origin = "1970-01-01"
+    ),
+    name = c("stale", "session_file", "session_chromote", "session_string", "fresh"),
+    value = "x"
+  )
+  store_cookies(cookies, jar = jar, confirm = TRUE)
+
+  expect_warning(get_cookies("expired.com", jar = jar), "1 cookie.+has expired")
+  expect_warning(get_cookies("expired.com", jar = jar), "stale")
+  expect_no_warning(get_cookies("expired.com", key = "session|fresh", jar = jar))
+})

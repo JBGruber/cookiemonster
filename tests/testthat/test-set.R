@@ -47,3 +47,18 @@ test_that("old cookies are replaced", {
     get_cookies(domain = "^tests.com")$value
   }, "delicious")
 })
+
+test_that("HttpOnly cookies from cookie files get a proper domain", {
+  f <- tempfile(fileext = ".txt")
+  on.exit(unlink(f))
+  writeLines(c(
+    "# Netscape HTTP Cookie File",
+    "#HttpOnly_.httponly.com\tTRUE\t/\tTRUE\t0\twith_dot\ta",
+    "#HttpOnly_www.httponly.com\tFALSE\t/\tTRUE\t0\twithout_dot\tb",
+    ".httponly.com\tTRUE\t/\tTRUE\t0\tplain\tc"
+  ), f)
+  expect_equal(
+    read_cookiefile(f)$domain,
+    c("httponly.com", "www.httponly.com", "httponly.com")
+  )
+})

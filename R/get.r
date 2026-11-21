@@ -71,6 +71,7 @@ get_cookies <- function(domain,
 
   out <- cookies[sel, ]
   out$value <- decrypt_vec(out$value)
+  warn_expired(out)
 
   switch (
     as,
