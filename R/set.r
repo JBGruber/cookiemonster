@@ -186,13 +186,41 @@ parse_session <- function(sess) {
   if (!inherits(sess, "LiveHTML")) {
     cli::cli_abort("{.code sess} must be an object created by {.code rvest::read_html_live()}.")
   }
-  cookies <- sess$session$Network$getCookies()
-  out <- dplyr::bind_rows(cookies)
-  if (nrow(out) > 0) {
-    out <- out |>
-      dplyr::mutate(expiration = as.POSIXct(.data$expires)) |>
-      dplyr::select("domain", flag = "sameParty", "path", "secure",
-                    "expiration", "name", "value")
-  }
-  return(out)
+  resp <- sess$session$Network$getCookies()
+  parse_chromote_cookies(resp$cookies)
+}
+
+
+#' turn a list of DevTools Protocol cookie objects into a cookie table
+#'
+#' Fields are extracted one by one, so cookies that lack a field (Chrome adds
+#' and removes fields over time, e.g. it dropped `sameParty`) get a default
+#' instead of breaking the parser.
+#' @noRd
+parse_chromote_cookies <- function(cookies) {
+  domain <- cookie_field(cookies, "domain", NA_character_)
+  tibble::tibble(
+    domain = domain,
+    # in Netscape cookie files, flag means "include subdomains", which is the
+    # case for domain cookies (leading dot) but not host-only cookies
+    flag = startsWith(domain, "."),
+    path = cookie_field(cookies, "path", NA_character_),
+    secure = cookie_field(cookies, "secure", NA),
+    # session cookies have expires = -1, which is kept as is (see warn_expired)
+    expiration = as.POSIXct.numeric(cookie_field(cookies, "expires", NA_real_),
+                                    origin = "1970-01-01"),
+    name = cookie_field(cookies, "name", NA_character_),
+    value = cookie_field(cookies, "value", NA_character_)
+  )
+}
+
+
+#' extract one field from a list of cookie objects, with a default if missing
+#' @noRd
+cookie_field <- function(cookies, field, default) {
+  vapply(cookies, function(el) {
+    x <- el[[field]]
+    if (length(x) != 1L) return(default)
+    as.vector(x, mode = typeof(default))
+  }, FUN.VALUE = default, USE.NAMES = FALSE)
 }

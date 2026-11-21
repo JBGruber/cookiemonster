@@ -2,6 +2,7 @@
 
 * `get_cookies()` (and therefore `req_cookiemonster_set()`) now warns when retrieved cookies are past their expiration date (session cookies are not affected)
 * fixes cookies with a `#HttpOnly_` prefix but no leading dot getting an `NA` domain (such cookies could not be retrieved and replaced each other across websites)
+* fixes `add_cookies(session = )` failing with "Column `sameParty` doesn't exist" since Chrome stopped sending that field. `flag` now means "include subdomains" (domain starts with a dot), as in cookie files, and missing fields become `NA` instead of an error. This also removes the hidden dependency on `dplyr` (which is only suggested)
 
 # cookiemonster 0.1.0
 

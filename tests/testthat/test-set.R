@@ -62,3 +62,43 @@ test_that("HttpOnly cookies from cookie files get a proper domain", {
     c("httponly.com", "www.httponly.com", "httponly.com")
   )
 })
+
+test_that("cookies from live sessions are parsed without optional fields", {
+  # mimics sess$session$Network$getCookies() from a current Chrome, which no
+  # longer sends sameParty
+  fake_sess <- structure(list(session = list(Network = list(
+    getCookies = function() list(cookies = list(
+      list(name = "domain_cookie", value = "a", domain = ".example.com",
+           path = "/", expires = 1700000000, size = 14, httpOnly = TRUE,
+           secure = TRUE, session = FALSE, sameSite = "Lax",
+           priority = "Medium", sourceScheme = "Secure", sourcePort = 443L),
+      list(name = "host_cookie", value = "b", domain = "www.example.com",
+           path = "/", expires = -1, size = 12, httpOnly = FALSE,
+           secure = FALSE, session = TRUE, priority = "Medium",
+           sourceScheme = "Secure", sourcePort = 443L)
+    ))
+  ))), class = "LiveHTML")
+
+  cookies <- parse_session(fake_sess)
+  expect_named(cookies, c("domain", "flag", "path", "secure", "expiration",
+                          "name", "value"))
+  expect_equal(cookies$flag, c(TRUE, FALSE))
+  expect_equal(cookies$secure, c(TRUE, FALSE))
+  expect_equal(as.numeric(cookies$expiration), c(1700000000, -1))
+  expect_s3_class(cookies$expiration, "POSIXct")
+  expect_equal(cookies$name, c("domain_cookie", "host_cookie"))
+  expect_equal(cookies$value, c("a", "b"))
+
+  # a missing field becomes NA instead of an error
+  no_secure <- parse_chromote_cookies(list(list(
+    name = "x", value = "y", domain = "example.com", path = "/", expires = -1
+  )))
+  expect_identical(no_secure$secure, NA)
+
+  # sessions without cookies give an empty table with the usual columns
+  empty <- parse_chromote_cookies(list())
+  expect_equal(nrow(empty), 0L)
+  expect_named(empty, names(cookies))
+
+  expect_error(parse_session(list()), "read_html_live")
+})
