@@ -14,6 +14,10 @@
 #' @param as A character string of the type of output to return.
 #' @param fixed If \code{TRUE}, \code{domain} and \code{key} are matched as is.
 #'   If either \code{domain} or \code{key}, only those values are treated as is.
+#' @param include_expired If \code{FALSE} (the default), cookies that are past
+#'   their expiration date are left out, just like a browser would not send
+#'   them anymore. Set to \code{TRUE} to retrieve them anyway, e.g., to inspect
+#'   what is in the jar.
 #' @returns Depending on the value of \code{as}, returns either a data frame, a
 #'   character string, or a named vector.
 #'
@@ -28,6 +32,10 @@
 #'
 #'   See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
 #'   these packages.
+#'
+#'   Expired cookies stay in the jar, but are not returned unless
+#'   \code{include_expired = TRUE}. Session cookies (which have no expiration
+#'   date) are always returned.
 #'
 #' @note Your cookies are saved in an encrypted file. See \link{encrypt_vec} for
 #'   more info.
@@ -55,7 +63,8 @@ get_cookies <- function(domain,
                         key = "",
                         jar = default_jar(),
                         as = c("data.frame", "string", "vector", "list"),
-                        fixed = FALSE) {
+                        fixed = FALSE,
+                        include_expired = FALSE) {
 
   as <- match.arg(as)
   f <- file.path(jar, paste0("cookies.rds"))
@@ -68,10 +77,12 @@ get_cookies <- function(domain,
   cookies <- readRDS(f)
 
   sel <- select_cookies(cookies, domain, key, fixed)
+  if (!include_expired) {
+    sel <- sel & !is_expired(cookies$expiration)
+  }
 
   out <- cookies[sel, ]
   out$value <- decrypt_vec(out$value)
-  warn_expired(out)
 
   switch (
     as,

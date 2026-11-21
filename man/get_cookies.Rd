@@ -9,7 +9,8 @@ get_cookies(
   key = "",
   jar = default_jar(),
   as = c("data.frame", "string", "vector", "list"),
-  fixed = FALSE
+  fixed = FALSE,
+  include_expired = FALSE
 )
 }
 \arguments{
@@ -27,6 +28,11 @@ to use \code{default_jar()} to get a suitable directory).}
 
 \item{fixed}{If \code{TRUE}, \code{domain} and \code{key} are matched as is.
 If either \code{domain} or \code{key}, only those values are treated as is.}
+
+\item{include_expired}{If \code{FALSE} (the default), cookies that are past
+their expiration date are left out, just like a browser would not send
+them anymore. Set to \code{TRUE} to retrieve them anyway, e.g., to inspect
+what is in the jar.}
 }
 \value{
 Depending on the value of \code{as}, returns either a data frame, a
@@ -50,9 +56,9 @@ The function returns cookies in one of three formats:
 See \code{vignette("cookies", "cookiemonster")} for how to use cookies with
 these packages.
 
-If any of the retrieved cookies are past their expiration date, a warning
-is issued, since websites usually reject expired cookies. Session cookies
-(which have no expiration date) never trigger this warning.
+Expired cookies stay in the jar, but are not returned unless
+\code{include_expired = TRUE}. Session cookies (which have no expiration
+date) are always returned.
 }
 \note{
 Your cookies are saved in an encrypted file. See \link{encrypt_vec} for

@@ -206,7 +206,7 @@ parse_chromote_cookies <- function(cookies) {
     flag = startsWith(domain, "."),
     path = cookie_field(cookies, "path", NA_character_),
     secure = cookie_field(cookies, "secure", NA),
-    # session cookies have expires = -1, which is kept as is (see warn_expired)
+    # session cookies have expires = -1, which is kept as is (see is_expired)
     expiration = as.POSIXct.numeric(cookie_field(cookies, "expires", NA_real_),
                                     origin = "1970-01-01"),
     name = cookie_field(cookies, "name", NA_character_),

@@ -78,7 +78,7 @@ test_that("fixed selection works", {
 })
 
 
-test_that("expired cookies trigger a warning", {
+test_that("expired cookies are dropped unless requested", {
   jar <- file.path(tempdir(), "expired_jar")
   on.exit(unlink(jar, recursive = TRUE))
   cookies <- tibble::tibble(
@@ -94,7 +94,16 @@ test_that("expired cookies trigger a warning", {
   )
   store_cookies(cookies, jar = jar, confirm = TRUE)
 
-  expect_warning(get_cookies("expired.com", jar = jar), "1 cookie.+has expired")
-  expect_warning(get_cookies("expired.com", jar = jar), "stale")
-  expect_no_warning(get_cookies("expired.com", key = "session|fresh", jar = jar))
+  expect_no_warning(out <- get_cookies("expired.com", jar = jar))
+  expect_equal(out$name, cookies$name[-1])
+  expect_equal(
+    get_cookies("expired.com", key = "stale", jar = jar, as = "string"),
+    ""
+  )
+  expect_equal(
+    get_cookies("expired.com", jar = jar, include_expired = TRUE)$name,
+    cookies$name
+  )
+  # expired cookies stay in the jar
+  expect_equal(nrow(readRDS(file.path(jar, "cookies.rds"))), 5L)
 })
