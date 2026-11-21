@@ -17,6 +17,12 @@
 get_cookies_from_browser <- function(browser = "Firefox") {
 
   rlang::check_installed(c("DBI", "RSQLite", "dplyr"))
+  # Some RSQLite binaries (e.g., from Posit Package Manager) ship their own,
+  # older libcurl and make its symbols global on dbConnect(). If curl is loaded
+  # after that, it binds to the wrong libcurl and every httr2/curl request fails
+  # with "An unknown option was passed in to libcurl". Loading curl first avoids
+  # this.
+  requireNamespace("curl", quietly = TRUE)
 
   cookie_db_file <- find_cookiejar(browser)
 
