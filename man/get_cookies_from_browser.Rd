@@ -7,17 +7,43 @@
 get_cookies_from_browser(browser = "Firefox")
 }
 \arguments{
-\item{browser}{A character string specifying the browser to get cookies from.
-Defaults to "Firefox".}
+\item{browser}{A character string specifying the browser to get cookies from
+(case-insensitive, see the section "Supported browsers"). Defaults to "Firefox".}
 }
 \value{
-A tibble containing the cookies from the specified browser.
+A tibble containing the cookies from the specified browser, with the
+columns \code{domain}, \code{flag} (include subdomains), \code{path}, \code{secure},
+\code{expiration}, \code{name} and \code{value}.
 }
 \description{
-Retrieves all cookies from a Browser (currently works with Firefox only).
+Raids the cookie jar of a browser installed on your computer: reads the
+browser's own cookie database (from all profiles found) and returns the
+cookies in the same format as the other cookie sources of this package, ready
+for \code{\link[=store_cookies]{store_cookies()}}.
 }
+\section{Supported browsers}{
+\tabular{lccc}{
+   Browser \tab Linux \tab macOS \tab Windows \cr
+   Firefox \tab yes \tab yes \tab yes \cr
+   LibreWolf \tab yes \tab yes \tab yes \cr
+   Zen \tab yes \tab yes \tab yes \cr
+   Waterfox \tab yes \tab yes \tab yes \cr
+   Floorp \tab yes \tab yes \tab yes \cr
+}
+
+
+Chromium-based browsers (Chrome, Edge, Brave, ...) and Safari are not
+supported yet. Until then, export a \code{cookies.txt} file or use
+\code{add_cookies(session = ...)}.
+
+The browser database is copied to a temporary directory before it is read,
+so the browser can stay open. Cookie values are only held in memory; they
+are encrypted once you put them in the jar with \code{\link[=store_cookies]{store_cookies()}}.
+}
+
 \examples{
 \dontrun{
-get_cookies_from_browser("Firefox")
+cookies <- get_cookies_from_browser("Firefox")
+store_cookies(cookies)
 }
 }

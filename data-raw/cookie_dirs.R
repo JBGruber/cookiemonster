@@ -18,8 +18,12 @@
 ## skipped as it does not keep cookies between sessions by default and has no
 ## fixed install location.
 
-gecko <- function(browser, linux = character(), windows = character(),
-                  darwin = character()) {
+gecko <- function(
+  browser,
+  linux = character(),
+  windows = character(),
+  darwin = character()
+) {
   rows <- list(
     tibble::tibble(os = "Linux", env = NA_character_, path = linux),
     tibble::tibble(
@@ -34,7 +38,15 @@ gecko <- function(browser, linux = character(), windows = character(),
   out$engine <- "firefox"
   out$cookie_file <- "cookies.sqlite"
   out$keyring_name <- NA_character_
-  out[, c("os", "browser", "engine", "env", "path", "cookie_file", "keyring_name")]
+  out[, c(
+    "os",
+    "browser",
+    "engine",
+    "env",
+    "path",
+    "cookie_file",
+    "keyring_name"
+  )]
 }
 
 cookie_dirs <- rbind(

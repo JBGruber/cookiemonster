@@ -1,6 +1,14 @@
 fixture <- function(...) test_path("fixtures", ...)
 
-cookie_cols <- c("domain", "flag", "path", "secure", "expiration", "name", "value")
+cookie_cols <- c(
+  "domain",
+  "flag",
+  "path",
+  "secure",
+  "expiration",
+  "name",
+  "value"
+)
 
 test_that("Firefox cookie databases are read into the common schema", {
   for (f in c("firefox_cookies.sqlite", "firefox_cookies_v15.sqlite")) {
@@ -21,7 +29,10 @@ test_that("Firefox expiry in milliseconds is detected without schema version", {
   db <- withr::local_tempfile(fileext = ".sqlite")
   file.copy(fixture("firefox_cookies_v15.sqlite"), db)
   conn <- DBI::dbConnect(RSQLite::SQLite(), db)
-  DBI::dbExecute(conn, "UPDATE moz_cookies SET expiry = 2147483647000 WHERE name = 'theme'")
+  DBI::dbExecute(
+    conn,
+    "UPDATE moz_cookies SET expiry = 2147483647000 WHERE name = 'theme'"
+  )
   DBI::dbDisconnect(conn)
   cookies <- read_cookie_db(db, engine = "firefox")
   expect_equal(as.numeric(cookies$expiration), c(2147483647, 2147483647, 0))
@@ -35,10 +46,13 @@ test_that("cookies only in the WAL file are read and the copy is cleaned up", {
   withr::defer(DBI::dbDisconnect(conn))
   DBI::dbExecute(conn, "PRAGMA journal_mode = WAL")
   DBI::dbExecute(conn, "PRAGMA wal_autocheckpoint = 0")
-  DBI::dbExecute(conn, paste(
-    "INSERT INTO moz_cookies (name, value, host, path, expiry, isSecure)",
-    "VALUES ('wal_only', 'yes', '.wal.test', '/', 0, 0)"
-  ))
+  DBI::dbExecute(
+    conn,
+    paste(
+      "INSERT INTO moz_cookies (name, value, host, path, expiry, isSecure)",
+      "VALUES ('wal_only', 'yes', '.wal.test', '/', 0, 0)"
+    )
+  )
   expect_true(file.exists(paste0(db, "-wal")))
 
   before <- list.files(tempdir())
@@ -48,32 +62,46 @@ test_that("cookies only in the WAL file are read and the copy is cleaned up", {
 })
 
 test_that("unknown engines and failed copies give informative errors", {
-  expect_error(read_cookie_db(fixture("firefox_cookies.sqlite"), "netscape"),
-               "not supported")
-  expect_error(read_cookie_db(fixture("does_not_exist.sqlite"), "firefox"),
-               "close it and try again")
+  expect_error(
+    read_cookie_db(fixture("firefox_cookies.sqlite"), "netscape"),
+    "not supported"
+  )
+  expect_error(
+    read_cookie_db(fixture("does_not_exist.sqlite"), "firefox"),
+    "close it and try again"
+  )
 })
 
 test_that("find_cookiejar() finds cookie databases", {
   root <- withr::local_tempdir()
-  for (d in c("ff/abc.default", "ff/def.work", "appdata/Wolf/x.default",
-              "chr/Default/Network", "chr/Profile 1")) {
+  for (d in c(
+    "ff/abc.default",
+    "ff/def.work",
+    "appdata/Wolf/x.default",
+    "chr/Default/Network",
+    "chr/Profile 1"
+  )) {
     dir.create(file.path(root, d), recursive = TRUE)
   }
-  for (f in c("ff/abc.default/cookies.sqlite", "ff/def.work/cookies.sqlite",
-              "appdata/Wolf/x.default/cookies.sqlite", "chr/Default/Cookies",
-              "chr/Default/Network/Cookies", "chr/Profile 1/Cookies")) {
+  for (f in c(
+    "ff/abc.default/cookies.sqlite",
+    "ff/def.work/cookies.sqlite",
+    "appdata/Wolf/x.default/cookies.sqlite",
+    "chr/Default/Cookies",
+    "chr/Default/Network/Cookies",
+    "chr/Profile 1/Cookies"
+  )) {
     file.create(file.path(root, f))
   }
   withr::local_envvar(COOKIEMONSTER_TEST_APPDATA = file.path(root, "appdata"))
   dirs <- tibble::tribble(
-    ~os,       ~browser, ~engine,    ~env,                         ~path,                     ~cookie_file,     ~keyring_name,
-    "Linux",   "Fox",    "firefox",  NA,                           file.path(root, "ff"),     "cookies.sqlite", NA,
-    "Linux",   "Fox",    "firefox",  NA,                           file.path(root, "nope"),   "cookies.sqlite", NA,
-    "Linux",   "Wolf",   "firefox",  "COOKIEMONSTER_TEST_APPDATA", "Wolf",                    "cookies.sqlite", NA,
-    "Linux",   "Wolf",   "firefox",  "COOKIEMONSTER_TEST_UNSET",   "Wolf",                    "cookies.sqlite", NA,
-    "Linux",   "Shiny",  "chromium", NA,                           file.path(root, "chr"),    "Cookies",        "Shiny",
-    "Darwin",  "Fox",    "firefox",  NA,                           file.path(root, "ff"),     "cookies.sqlite", NA
+    ~os      , ~browser , ~engine    , ~env                         , ~path                   , ~cookie_file     , ~keyring_name ,
+    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")   , "cookies.sqlite" , NA            ,
+    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "nope") , "cookies.sqlite" , NA            ,
+    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_APPDATA" , "Wolf"                  , "cookies.sqlite" , NA            ,
+    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_UNSET"   , "Wolf"                  , "cookies.sqlite" , NA            ,
+    "Linux"  , "Shiny"  , "chromium" , NA                           , file.path(root, "chr")  , "Cookies"        , "Shiny"       ,
+    "Darwin" , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")   , "cookies.sqlite" , NA
   )
 
   # case-insensitive, multiple profiles, missing dirs are fine
@@ -97,10 +125,11 @@ test_that("find_cookiejar() finds cookie databases", {
   )
   expect_equal(unique(jars$keyring_name), "Shiny")
 
-  expect_error(find_cookiejar("Shiny", dirs = dirs, os = "Darwin"),
-               "not supported on Darwin")
-  expect_error(find_cookiejar("Shiny", dirs = dirs, os = "Darwin"),
-               "Fox")
+  expect_error(
+    find_cookiejar("Shiny", dirs = dirs, os = "Darwin"),
+    "not supported on Darwin"
+  )
+  expect_error(find_cookiejar("Shiny", dirs = dirs, os = "Darwin"), "Fox")
 
   # no database found
   jars <- find_cookiejar("Fox", dirs = dirs[2, ], os = "Linux")
@@ -119,7 +148,9 @@ test_that("cookie_dirs uses Sys.info() names and known engines", {
 test_that("get_cookies_from_browser() combines profiles", {
   local_mocked_bindings(find_cookiejar = function(browser) {
     tibble::tibble(
-      browser = "Firefox", engine = "firefox", keyring_name = NA_character_,
+      browser = "Firefox",
+      engine = "firefox",
+      keyring_name = NA_character_,
       root = fixture(),
       path = fixture(c("firefox_cookies.sqlite", "firefox_cookies_v15.sqlite"))
     )

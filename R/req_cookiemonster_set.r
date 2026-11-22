@@ -21,7 +21,8 @@
 req_cookiemonster_set <- function(req, jar = default_jar(), ...) {
   rlang::check_installed("httr2")
   # should fail with the httr2 message if not a req or invalid url
-  url <- tryCatch(httr2::url_parse(req$url),
-                  error = function(e) list(hostname = "&"))
+  url <- tryCatch(httr2::url_parse(req$url), error = function(e) {
+    list(hostname = "&")
+  })
   httr2::req_options(req, cookie = get_cookies(url$hostname, as = "string"))
 }

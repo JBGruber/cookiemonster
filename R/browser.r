@@ -38,7 +38,6 @@
 #' store_cookies(cookies)
 #' }
 get_cookies_from_browser <- function(browser = "Firefox") {
-
   rlang::check_installed(c("DBI", "RSQLite"))
   # Some RSQLite binaries (e.g., from Posit Package Manager) ship their own,
   # older libcurl and make its symbols global on dbConnect(). If curl is loaded
@@ -76,16 +75,23 @@ get_cookies_from_browser <- function(browser = "Firefox") {
 #'   directory) and `path` (the cookie database). The directories that were
 #'   searched are attached as attribute `"searched"`.
 #' @noRd
-find_cookiejar <- function(browser, dirs = cookie_dirs, os = current_os(),
-                           call = rlang::caller_env()) {
+find_cookiejar <- function(
+  browser,
+  dirs = cookie_dirs,
+  os = current_os(),
+  call = rlang::caller_env()
+) {
   dirs <- dirs[dirs$os == os, ]
   sel <- dirs[tolower(dirs$browser) == tolower(browser), ]
   if (nrow(sel) == 0L) {
     supported <- unique(dirs$browser)
-    cli::cli_abort(c(
-      "Browser {.val {browser}} is not supported on {os}.",
-      "i" = "Supported browsers: {.val {supported}}."
-    ), call = call)
+    cli::cli_abort(
+      c(
+        "Browser {.val {browser}} is not supported on {os}.",
+        "i" = "Supported browsers: {.val {supported}}."
+      ),
+      call = call
+    )
   }
 
   base <- ifelse(is.na(sel$env), "", Sys.getenv(sel$env, unset = ""))
@@ -93,12 +99,20 @@ find_cookiejar <- function(browser, dirs = cookie_dirs, os = current_os(),
   keep <- is.na(sel$env) | base != ""
   sel <- sel[keep, ]
   base <- base[keep]
-  sel$root <- ifelse(is.na(sel$env), path.expand(sel$path), file.path(base, sel$path))
+  sel$root <- ifelse(
+    is.na(sel$env),
+    path.expand(sel$path),
+    file.path(base, sel$path)
+  )
 
   found <- lapply(seq_len(nrow(sel)), function(i) {
     files <- list.files(
       sel$root[i],
-      pattern = paste0("^", gsub(".", "\\.", sel$cookie_file[i], fixed = TRUE), "$"),
+      pattern = paste0(
+        "^",
+        gsub(".", "\\.", sel$cookie_file[i], fixed = TRUE),
+        "$"
+      ),
       recursive = TRUE,
       full.names = TRUE
     )
@@ -111,9 +125,13 @@ find_cookiejar <- function(browser, dirs = cookie_dirs, os = current_os(),
     )
   })
   out <- vctrs::vec_rbind(
-    tibble::tibble(browser = character(), engine = character(),
-                   keyring_name = character(), root = character(),
-                   path = character()),
+    tibble::tibble(
+      browser = character(),
+      engine = character(),
+      keyring_name = character(),
+      root = character(),
+      path = character()
+    ),
     !!!found
   )
   out <- prefer_network_dir(out)
@@ -158,12 +176,17 @@ read_cookie_db <- function(db_file, engine) {
     ))
   }
 
-  conn <- DBI::dbConnect(RSQLite::SQLite(), file.path(tmp, basename(db_file)),
-                         bigint = "numeric")
+  conn <- DBI::dbConnect(
+    RSQLite::SQLite(),
+    file.path(tmp, basename(db_file)),
+    bigint = "numeric"
+  )
   on.exit(DBI::dbDisconnect(conn), add = TRUE, after = FALSE)
 
-  db <- structure(list(conn = conn, path = db_file),
-                  class = c(engine, "cookie_db"))
+  db <- structure(
+    list(conn = conn, path = db_file),
+    class = c(engine, "cookie_db")
+  )
   prep_db(db)
 }
 
@@ -180,7 +203,9 @@ prep_db <- function(db) {
 #' @exportS3Method
 #' @noRd
 prep_db.default <- function(db) {
-  cli::cli_abort("Reading cookies from {.cls {class(db)[1]}} browsers is not supported.")
+  cli::cli_abort(
+    "Reading cookies from {.cls {class(db)[1]}} browsers is not supported."
+  )
 }
 
 
@@ -214,7 +239,15 @@ prep_db.firefox <- function(db) {
 #' Build a tibble in the common cookie schema
 #' @param expiration seconds since the UNIX epoch (or POSIXct)
 #' @noRd
-new_cookie_tbl <- function(domain, flag, path, secure, expiration, name, value) {
+new_cookie_tbl <- function(
+  domain,
+  flag,
+  path,
+  secure,
+  expiration,
+  name,
+  value
+) {
   tibble::tibble(
     domain = as.character(domain),
     flag = as.logical(flag),
