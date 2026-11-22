@@ -1,5 +1,14 @@
 # cookiemonster (development version)
 
+* `get_cookies_from_browser()` got a makeover:
+  * now works on macOS (the cookie jar was never found there)
+  * LibreWolf works (it failed before) and Zen, Waterfox and Floorp are supported, plus Firefox installed via Flatpak, in `~/.config/mozilla` (Firefox 147+) or from the Microsoft Store
+  * the browser name is case-insensitive, and unknown browsers or missing cookie databases produce an informative error instead of an empty result
+  * `flag` now means "include subdomains", as everywhere else in the package (it was filled with the `sameSite` attribute)
+  * expiration dates of Firefox 142+ (stored in milliseconds) are converted correctly
+  * cookies the browser has not yet written to the main database file (SQLite WAL) are included, and profiles no longer overwrite each other's temporary copy
+  * `dplyr` is no longer needed
+
 * `get_cookies()` (and therefore `req_cookiemonster_set()`) no longer returns cookies that are past their expiration date, just like a browser would not send them anymore. Use `include_expired = TRUE` to get them anyway. Session cookies are not affected
 * fixes cookies with a `#HttpOnly_` prefix but no leading dot getting an `NA` domain (such cookies could not be retrieved and replaced each other across websites)
 * fixes `add_cookies(session = )` failing with "Column `sameParty` doesn't exist" since Chrome stopped sending that field. `flag` now means "include subdomains" (domain starts with a dot), as in cookie files, and missing fields become `NA` instead of an error. This also removes the hidden dependency on `dplyr` (which is only suggested)
