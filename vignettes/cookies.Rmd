@@ -85,7 +85,7 @@ add_cookies(
 )
 ```
 
-You can also import cookies directly from your browser (currently Firefox and its relatives LibreWolf, Zen, Waterfox and Floorp; see `?get_cookies_from_browser`):
+You can also import cookies directly from your browser (currently Firefox and its relatives LibreWolf, Zen, Waterfox and Floorp, and on Linux also Chrome, Chromium, Brave, Edge, Vivaldi and Opera; see `?get_cookies_from_browser`):
 
 ```{r eval=FALSE}
 cookies <- get_cookies_from_browser(browser = "Firefox") 

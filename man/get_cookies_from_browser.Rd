@@ -29,16 +29,33 @@ for \code{\link[=store_cookies]{store_cookies()}}.
    Zen \tab yes \tab yes \tab yes \cr
    Waterfox \tab yes \tab yes \tab yes \cr
    Floorp \tab yes \tab yes \tab yes \cr
+   Chrome \tab yes \tab no \tab no \cr
+   Chromium \tab yes \tab no \tab no \cr
+   Brave \tab yes \tab no \tab no \cr
+   Edge \tab yes \tab no \tab no \cr
+   Vivaldi \tab yes \tab no \tab no \cr
+   Opera \tab yes \tab no \tab no \cr
 }
 
 
-Chromium-based browsers (Chrome, Edge, Brave, ...) and Safari are not
-supported yet. Until then, export a \code{cookies.txt} file or use
+Chromium-based browsers on macOS and Windows and Safari are not supported
+yet. Until then, export a \code{cookies.txt} file or use
 \code{add_cookies(session = ...)}.
 
 The browser database is copied to a temporary directory before it is read,
 so the browser can stay open. Cookie values are only held in memory; they
 are encrypted once you put them in the jar with \code{\link[=store_cookies]{store_cookies()}}.
+}
+
+\section{Chromium-based browsers on Linux}{
+
+
+Chromium-based browsers encrypt their cookies with a password that is kept
+in the desktop's keyring. It is read with \code{secret-tool} (GNOME Keyring and
+other Secret Service providers, usually in the \code{libsecret} package of your
+distribution) or \code{kwallet-query} (KDE), so one of them needs to be
+installed. Your keyring might ask you to unlock it. Cookies that can't be
+decrypted are dropped with a warning.
 }
 
 \examples{

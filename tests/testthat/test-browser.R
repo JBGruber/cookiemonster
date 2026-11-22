@@ -72,6 +72,120 @@ test_that("unknown engines and failed copies give informative errors", {
   )
 })
 
+test_that("Chromium cookie databases are read and decrypted", {
+  local_mocked_bindings(
+    get_chromium_password = function(keyring_name) {
+      expect_equal(keyring_name, "Chrome")
+      "cookie-jar-password"
+    }
+  )
+  for (f in c("chromium_cookies_v23.sqlite", "chromium_cookies_v24.sqlite")) {
+    cookies <- read_cookie_db(fixture(f), "chromium", keyring_name = "Chrome")
+    expect_named(cookies, cookie_cols)
+    expect_s3_class(cookies$expiration, "POSIXct")
+    expect_equal(
+      cookies$domain,
+      c(".example.com", "www.example.com", ".cookies.test", "crumbs.test")
+    )
+    expect_equal(cookies$flag, c(TRUE, FALSE, TRUE, FALSE))
+    expect_equal(cookies$secure, c(TRUE, FALSE, TRUE, FALSE))
+    expect_equal(cookies$path, c("/", "/", "/account", "/"))
+    # session cookies keep 0
+    expect_equal(
+      as.numeric(cookies$expiration),
+      c(2147483647, 0, 1700000000, 2147483647)
+    )
+    expect_equal(cookies$name, c("session_id", "theme", "tracker", "consent"))
+    # v10 ("peanuts"), plain text, v11 (keyring), v10 (empty password)
+    expect_equal(cookies$value, c("abc123", "dark", "xyz", "yes"))
+  }
+})
+
+test_that("Chromium cookies that can't be decrypted are dropped with a warning", {
+  local_mocked_bindings(get_chromium_password = function(keyring_name) NULL)
+  expect_warning(
+    cookies <- read_cookie_db(
+      fixture("chromium_cookies_v24.sqlite"),
+      "chromium",
+      keyring_name = "Chrome"
+    ),
+    "1 cookie .* could not be decrypted"
+  )
+  expect_equal(cookies$name, c("session_id", "theme", "consent"))
+
+  # a wrong password is no better
+  local_mocked_bindings(get_chromium_password = function(keyring_name) "nope")
+  expect_warning(
+    read_cookie_db(
+      fixture("chromium_cookies_v24.sqlite"),
+      "chromium",
+      "Chrome"
+    ),
+    "could not be decrypted"
+  )
+})
+
+test_that("the keyring is only asked if there are v11 values", {
+  db <- withr::local_tempfile(fileext = ".sqlite")
+  file.copy(fixture("chromium_cookies_v24.sqlite"), db)
+  conn <- DBI::dbConnect(RSQLite::SQLite(), db)
+  DBI::dbExecute(conn, "DELETE FROM cookies WHERE name = 'tracker'")
+  DBI::dbDisconnect(conn)
+  local_mocked_bindings(
+    get_chromium_password = function(keyring_name) stop("keyring asked")
+  )
+  cookies <- read_cookie_db(db, "chromium", keyring_name = "Chrome")
+  expect_equal(cookies$value, c("abc123", "dark", "yes"))
+})
+
+test_that("decrypt_chromium_value() checks the hash prefix", {
+  key <- chromium_linux_key("peanuts")
+  ct <- openssl::aes_cbc_encrypt(
+    c(as.raw(openssl::sha256(charToRaw("a.test"))), charToRaw("crumb")),
+    key,
+    iv = rep(as.raw(0x20), 16)
+  )
+  expect_equal(decrypt_chromium_value(ct, key, "a.test", TRUE), "crumb")
+  expect_null(decrypt_chromium_value(ct, key, "b.test", TRUE))
+  expect_null(
+    decrypt_chromium_value(ct, chromium_linux_key(""), "a.test", TRUE)
+  )
+})
+
+test_that("Chromium passwords are looked up in the keyring", {
+  calls <- list()
+  local_mocked_bindings(
+    run_quietly = function(command, args) {
+      calls[[length(calls) + 1]] <<- c(command, args)
+      if (command == "kwallet-query") "secret" else NULL
+    }
+  )
+  local_mocked_bindings(has_command = function(command) TRUE)
+
+  withr::local_envvar(XDG_CURRENT_DESKTOP = "GNOME")
+  expect_equal(get_chromium_password("Chrome"), "secret")
+  # Secret Service is tried first, with Chromium's schema
+  expect_equal(calls[[1]][1], "secret-tool")
+  expect_true(all(
+    c("chrome_libsecret_os_crypt_password_v2", "application", "chrome") %in%
+      calls[[1]]
+  ))
+  expect_equal(calls[[length(calls)]][1], "kwallet-query")
+  expect_true(shQuote("Chrome Safe Storage") %in% calls[[length(calls)]])
+  expect_true(shQuote("Chrome Keys") %in% calls[[length(calls)]])
+
+  calls <- list()
+  withr::local_envvar(XDG_CURRENT_DESKTOP = "KDE")
+  expect_equal(get_chromium_password("Chromium"), "secret")
+  expect_length(calls, 1L)
+  expect_equal(calls[[1]][1], "kwallet-query")
+})
+
+test_that("missing keyring tools give no password", {
+  local_mocked_bindings(has_command = function(command) FALSE)
+  expect_null(get_chromium_password("Chrome"))
+})
+
 test_that("find_cookiejar() finds cookie databases", {
   root <- withr::local_tempdir()
   for (d in c(
@@ -180,3 +294,15 @@ test_that("get cookies from Firefox", {
   expect_named(cookies, cookie_cols)
   expect_gt(nrow(cookies), 1L)
 })
+
+
+for (b in c("Chrome", "Chromium", "Brave", "Edge", "Vivaldi", "Opera")) {
+  test_that(paste("get cookies from", b), {
+    skip_on_cran()
+    skip_if_not(current_os() == "Linux")
+    skip_if(nrow(find_cookiejar(b)) == 0L)
+    cookies <- get_cookies_from_browser(b)
+    expect_named(cookies, cookie_cols)
+    expect_false(anyNA(cookies$value))
+  })
+}

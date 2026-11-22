@@ -13,7 +13,7 @@
 ##
 ## Sources: https://github.com/borisbabic/browser_cookie3 and
 ## https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/cookies.py
-## (Firefox, LibreWolf). Zen, Waterfox and Floorp use the default locations of
+## (Firefox, LibreWolf, Chromium-based browsers and their keyring names). Zen, Waterfox and Floorp use the default locations of
 ## their profile managers. Tor Browser is skipped on purpose; Mullvad Browser is
 ## skipped as it does not keep cookies between sessions by default and has no
 ## fixed install location.
@@ -47,6 +47,21 @@ gecko <- function(
     "cookie_file",
     "keyring_name"
   )]
+}
+
+# keyring_name is the name used for the keyring entry
+# ("<keyring_name> Safe Storage"); several browsers reuse Chrome's or
+# Chromium's name on Linux.
+chromium <- function(browser, linux = character(), linux_keyring = NA) {
+  tibble::tibble(
+    os = "Linux",
+    browser = browser,
+    engine = "chromium",
+    env = NA_character_,
+    path = linux,
+    cookie_file = "Cookies",
+    keyring_name = linux_keyring
+  )
 }
 
 cookie_dirs <- rbind(
@@ -95,6 +110,56 @@ cookie_dirs <- rbind(
     linux = c("~/.floorp", "~/.var/app/one.ablaze.floorp/.floorp"),
     windows = "APPDATA\\Floorp",
     darwin = "~/Library/Application Support/Floorp"
+  ),
+  chromium(
+    "Chrome",
+    linux = c(
+      "~/.config/google-chrome",
+      "~/.var/app/com.google.Chrome/config/google-chrome"
+    ),
+    linux_keyring = "Chrome"
+  ),
+  chromium(
+    "Chromium",
+    linux = c(
+      "~/.config/chromium",
+      "~/snap/chromium/common/chromium",
+      "~/.var/app/org.chromium.Chromium/config/chromium",
+      "~/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium"
+    ),
+    linux_keyring = "Chromium"
+  ),
+  chromium(
+    "Brave",
+    linux = c(
+      "~/.config/BraveSoftware/Brave-Browser",
+      "~/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser"
+    ),
+    linux_keyring = "Brave"
+  ),
+  chromium(
+    "Edge",
+    linux = c(
+      "~/.config/microsoft-edge",
+      "~/.var/app/com.microsoft.Edge/config/microsoft-edge"
+    ),
+    linux_keyring = "Chromium"
+  ),
+  chromium(
+    "Vivaldi",
+    linux = c(
+      "~/.config/vivaldi",
+      "~/.var/app/com.vivaldi.Vivaldi/config/vivaldi"
+    ),
+    linux_keyring = "Chrome"
+  ),
+  chromium(
+    "Opera",
+    linux = c(
+      "~/.config/opera",
+      "~/.var/app/com.opera.Opera/config/opera"
+    ),
+    linux_keyring = "Chromium"
   )
 )
 
@@ -102,7 +167,8 @@ stopifnot(
   all(cookie_dirs$os %in% c("Linux", "Windows", "Darwin")),
   all(cookie_dirs$engine %in% c("firefox", "chromium", "safari")),
   !anyNA(cookie_dirs$path),
-  !anyNA(cookie_dirs$cookie_file)
+  !anyNA(cookie_dirs$cookie_file),
+  !anyNA(cookie_dirs$keyring_name[cookie_dirs$engine == "chromium"])
 )
 
 usethis::use_data(cookie_dirs, overwrite = TRUE, internal = TRUE)

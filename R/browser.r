@@ -14,14 +14,29 @@
 #' | Zen       | yes   | yes   | yes     |
 #' | Waterfox  | yes   | yes   | yes     |
 #' | Floorp    | yes   | yes   | yes     |
+#' | Chrome    | yes   | no    | no      |
+#' | Chromium  | yes   | no    | no      |
+#' | Brave     | yes   | no    | no      |
+#' | Edge      | yes   | no    | no      |
+#' | Vivaldi   | yes   | no    | no      |
+#' | Opera     | yes   | no    | no      |
 #'
-#' Chromium-based browsers (Chrome, Edge, Brave, ...) and Safari are not
-#' supported yet. Until then, export a `cookies.txt` file or use
+#' Chromium-based browsers on macOS and Windows and Safari are not supported
+#' yet. Until then, export a `cookies.txt` file or use
 #' `add_cookies(session = ...)`.
 #'
 #' The browser database is copied to a temporary directory before it is read,
 #' so the browser can stay open. Cookie values are only held in memory; they
 #' are encrypted once you put them in the jar with [store_cookies()].
+#'
+#' @section Chromium-based browsers on Linux:
+#'
+#' Chromium-based browsers encrypt their cookies with a password that is kept
+#' in the desktop's keyring. It is read with `secret-tool` (GNOME Keyring and
+#' other Secret Service providers, usually in the `libsecret` package of your
+#' distribution) or `kwallet-query` (KDE), so one of them needs to be
+#' installed. Your keyring might ask you to unlock it. Cookies that can't be
+#' decrypted are dropped with a warning.
 #'
 #' @param browser A character string specifying the browser to get cookies from
 #'   (case-insensitive, see the section "Supported browsers"). Defaults to "Firefox".
@@ -56,7 +71,11 @@ get_cookies_from_browser <- function(browser = "Firefox") {
   }
 
   cookies <- lapply(seq_len(nrow(jars)), function(i) {
-    read_cookie_db(jars$path[i], engine = jars$engine[i])
+    read_cookie_db(
+      jars$path[i],
+      engine = jars$engine[i],
+      keyring_name = jars$keyring_name[i]
+    )
   })
   vctrs::vec_unique(vctrs::vec_rbind(!!!cookies))
 }
@@ -159,9 +178,10 @@ prefer_network_dir <- function(jars) {
 #'
 #' @param db_file path to the cookie database.
 #' @param engine browser engine, used to dispatch `prep_db()`.
+#' @param keyring_name Chromium only: name of the browser's keyring entry.
 #' @return a tibble in the common cookie schema.
 #' @noRd
-read_cookie_db <- function(db_file, engine) {
+read_cookie_db <- function(db_file, engine, keyring_name = NA_character_) {
   tmp <- tempfile("cookiemonster")
   dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
@@ -184,7 +204,7 @@ read_cookie_db <- function(db_file, engine) {
   on.exit(DBI::dbDisconnect(conn), add = TRUE, after = FALSE)
 
   db <- structure(
-    list(conn = conn, path = db_file),
+    list(conn = conn, path = db_file, keyring_name = keyring_name),
     class = c(engine, "cookie_db")
   )
   prep_db(db)
@@ -192,8 +212,9 @@ read_cookie_db <- function(db_file, engine) {
 
 
 #' Convert a browser's cookie database into the common cookie schema
-#' @param db a list with element `conn` (a DBI connection) and `path` (path to
-#'   the original database) of class `c(<engine>, "cookie_db")`.
+#' @param db a list with elements `conn` (a DBI connection), `path` (path to
+#'   the original database) and `keyring_name` of class
+#'   `c(<engine>, "cookie_db")`.
 #' @noRd
 prep_db <- function(db) {
   UseMethod("prep_db")
@@ -233,6 +254,254 @@ prep_db.firefox <- function(db) {
     name = cookies$name,
     value = cookies$value
   )
+}
+
+
+#' @exportS3Method
+#' @noRd
+prep_db.chromium <- function(db) {
+  meta_version <- DBI::dbGetQuery(
+    db$conn,
+    "SELECT value FROM meta WHERE key = 'version'"
+  )$value
+  meta_version <- as.integer(c(meta_version, 0L)[1])
+  # very old databases call the column "secure"
+  fields <- DBI::dbListFields(db$conn, "cookies")
+  secure_col <- if ("is_secure" %in% fields) "is_secure" else "secure"
+  cookies <- DBI::dbGetQuery(
+    db$conn,
+    paste(
+      "SELECT host_key, name, value, encrypted_value, path, expires_utc,",
+      secure_col,
+      "AS is_secure FROM cookies"
+    )
+  )
+
+  value <- decrypt_chromium_values(
+    encrypted = cookies$encrypted_value,
+    value = cookies$value,
+    host_key = cookies$host_key,
+    meta_version = meta_version,
+    keyring_name = db$keyring_name
+  )
+  failed <- is.na(value)
+  if (any(failed)) {
+    cli::cli_warn(c(
+      "{sum(failed)} cookie{?s} in {.path {db$path}} could not be decrypted and {?was/were} dropped.",
+      "i" = "The browser's password could not be read from the keyring or did not fit."
+    ))
+  }
+
+  # microseconds since 1601-01-01; 0 marks session cookies
+  expires <- as.numeric(cookies$expires_utc)
+  expiration <- ifelse(expires == 0, 0, expires / 1e6 - 11644473600)
+
+  new_cookie_tbl(
+    domain = cookies$host_key,
+    flag = startsWith(cookies$host_key, "."),
+    path = cookies$path,
+    secure = as.logical(cookies$is_secure),
+    expiration = expiration,
+    name = cookies$name,
+    value = value
+  )[!failed, ]
+}
+
+
+#' Decrypt the values of Chromium cookies
+#'
+#' Encrypted values start with a version prefix. On Linux, `v10` values use a
+#' key derived from the hard-coded password "peanuts", `v11` values a key
+#' derived from a password in the keyring. Both fall back to a key derived from
+#' an empty password, which Chromium uses when the keyring is unavailable. See
+#' `components/os_crypt` in the Chromium sources.
+#'
+#' @param encrypted list of raw vectors (the `encrypted_value` column).
+#' @param value character vector (the `value` column), used where nothing is
+#'   encrypted.
+#' @param host_key character vector, needed to check the hash prefix.
+#' @param meta_version version of the database (`meta` table). From version 24
+#'   on, the plain text starts with the SHA-256 hash of `host_key`.
+#' @param keyring_name name of the keyring entry.
+#' @return character vector of values; `NA` where decryption failed.
+#' @noRd
+decrypt_chromium_values <- function(
+  encrypted,
+  value,
+  host_key,
+  meta_version,
+  keyring_name
+) {
+  value <- as.character(value)
+  prefix <- vapply(
+    encrypted,
+    function(x) if (length(x) >= 3) rawToChar(x[1:3]) else "",
+    character(1)
+  )
+  todo <- which(lengths(encrypted) > 0 & (is.na(value) | value == ""))
+  if (length(todo) == 0L) {
+    return(value)
+  }
+
+  empty_key <- chromium_linux_key("")
+  keys <- list(v10 = list(chromium_linux_key("peanuts"), empty_key))
+  if (any(prefix[todo] == "v11")) {
+    password <- get_chromium_password(keyring_name)
+    keys$v11 <- c(
+      if (!is.null(password)) list(chromium_linux_key(password)),
+      list(empty_key)
+    )
+  }
+
+  for (i in todo) {
+    value[i] <- NA_character_
+    for (key in keys[[prefix[i]]]) {
+      plain <- decrypt_chromium_value(
+        encrypted[[i]][-(1:3)],
+        key = key,
+        host_key = host_key[i],
+        hash_prefix = meta_version >= 24
+      )
+      if (!is.null(plain)) {
+        value[i] <- plain
+        break
+      }
+    }
+  }
+  value
+}
+
+
+#' Decrypt one AES-128-CBC encrypted Chromium value
+#'
+#' @param ciphertext raw vector without the version prefix.
+#' @param key raw vector.
+#' @param host_key cookie domain.
+#' @param hash_prefix whether the plain text starts with the SHA-256 hash of
+#'   `host_key`.
+#' @return a string, or `NULL` if the key does not fit.
+#' @noRd
+decrypt_chromium_value <- function(ciphertext, key, host_key, hash_prefix) {
+  plain <- tryCatch(
+    openssl::aes_cbc_decrypt(ciphertext, key, iv = rep(as.raw(0x20), 16)),
+    error = function(e) NULL
+  )
+  if (is.null(plain)) {
+    return(NULL)
+  }
+  if (hash_prefix) {
+    hash <- as.raw(openssl::sha256(charToRaw(host_key)))
+    if (length(plain) < 32 || !identical(plain[1:32], hash)) {
+      return(NULL)
+    }
+    plain <- plain[-(1:32)]
+  }
+  out <- tryCatch(rawToChar(plain), error = function(e) NULL)
+  if (is.null(out) || !validUTF8(out)) {
+    return(NULL)
+  }
+  out
+}
+
+
+#' @noRd
+chromium_linux_key <- function(password) {
+  pbkdf2_sha1(password, "saltysalt", iterations = 1, key_length = 16)
+}
+
+
+#' Read a Chromium browser's password from the Linux keyring
+#'
+#' Tries the Secret Service (GNOME Keyring, KeePassXC, ...) via `secret-tool`
+#' and KWallet via `kwallet-query`, in the order that fits the desktop.
+#'
+#' @param keyring_name name of the keyring entry, e.g. "Chrome".
+#' @return the password as a string, or `NULL` if none was found.
+#' @noRd
+get_chromium_password <- function(keyring_name) {
+  lookups <- list(
+    secret_service = function() secret_service_password(keyring_name),
+    kwallet = function() kwallet_password(keyring_name)
+  )
+  if (grepl("KDE", Sys.getenv("XDG_CURRENT_DESKTOP"), ignore.case = TRUE)) {
+    lookups <- rev(lookups)
+  }
+  for (lookup in lookups) {
+    password <- lookup()
+    if (!is.null(password)) {
+      return(password)
+    }
+  }
+  NULL
+}
+
+
+#' @noRd
+secret_service_password <- function(keyring_name) {
+  if (!has_command("secret-tool")) {
+    return(NULL)
+  }
+  app <- tolower(keyring_name)
+  queries <- list(
+    c(
+      "xdg:schema",
+      "chrome_libsecret_os_crypt_password_v2",
+      "application",
+      app
+    ),
+    c("xdg:schema", "chrome_libsecret_os_crypt_password", "application", app),
+    c("application", app)
+  )
+  for (query in queries) {
+    password <- run_quietly("secret-tool", c("lookup", query))
+    if (!is.null(password)) {
+      return(password)
+    }
+  }
+  NULL
+}
+
+
+#' @noRd
+kwallet_password <- function(keyring_name) {
+  if (!has_command("kwallet-query")) {
+    return(NULL)
+  }
+  password <- run_quietly(
+    "kwallet-query",
+    c(
+      "--read-password",
+      shQuote(paste(keyring_name, "Safe Storage")),
+      "--folder",
+      shQuote(paste(keyring_name, "Keys")),
+      "kdewallet"
+    )
+  )
+  if (is.null(password) || startsWith(tolower(password), "failed to read")) {
+    return(NULL)
+  }
+  password
+}
+
+
+#' Run a command and return its first line of output, or `NULL` on failure
+#' @noRd
+run_quietly <- function(command, args) {
+  out <- tryCatch(
+    suppressWarnings(system2(command, args, stdout = TRUE, stderr = FALSE)),
+    error = function(e) NULL
+  )
+  status <- attr(out, "status")
+  if (length(out) == 0L || (!is.null(status) && status != 0L)) {
+    return(NULL)
+  }
+  out[1]
+}
+
+
+#' @noRd
+has_command <- function(command) {
+  nzchar(Sys.which(command))
 }
 
 

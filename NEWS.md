@@ -8,6 +8,7 @@
   * expiration dates of Firefox 142+ (stored in milliseconds) are converted correctly
   * cookies the browser has not yet written to the main database file (SQLite WAL) are included, and profiles no longer overwrite each other's temporary copy
   * `dplyr` is no longer needed
+  * Chromium-based browsers (Chrome, Chromium, Brave, Edge, Vivaldi and Opera) are supported on Linux, including Snap and Flatpak installs. Encrypted cookies are decrypted with the browser's password from the Secret Service (`secret-tool`) or KWallet (`kwallet-query`)
 
 * `get_cookies()` (and therefore `req_cookiemonster_set()`) no longer returns cookies that are past their expiration date, just like a browser would not send them anymore. Use `include_expired = TRUE` to get them anyway. Session cookies are not affected
 * fixes cookies with a `#HttpOnly_` prefix but no leading dot getting an `NA` domain (such cookies could not be retrieved and replaced each other across websites)
