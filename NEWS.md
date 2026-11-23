@@ -9,6 +9,9 @@
   * cookies the browser has not yet written to the main database file (SQLite WAL) are included, and profiles no longer overwrite each other's temporary copy
   * `dplyr` is no longer needed
   * Chromium-based browsers (Chrome, Chromium, Brave, Edge, Vivaldi and Opera) are supported on Linux, including Snap and Flatpak installs. Encrypted cookies are decrypted with the browser's password from the Secret Service (`secret-tool`) or KWallet (`kwallet-query`)
+  * Chromium-based browsers are supported on Windows. The cookie key is unprotected via PowerShell (DPAPI); cookies with app-bound encryption (`v20`, Chrome 127+) can't be decrypted and are dropped with a warning
+  * Chromium-based browsers are supported on macOS, with the browser's password from the macOS Keychain (macOS asks for permission)
+  * Safari is supported (needs Full Disk Access for the app you run R in)
 
 * `get_cookies()` (and therefore `req_cookiemonster_set()`) no longer returns cookies that are past their expiration date, just like a browser would not send them anymore. Use `include_expired = TRUE` to get them anyway. Session cookies are not affected
 * fixes cookies with a `#HttpOnly_` prefix but no leading dot getting an `NA` domain (such cookies could not be retrieved and replaced each other across websites)

@@ -53,12 +53,17 @@ gecko <- function(
 # ("<keyring_name> Safe Storage" on macOS; "application <name>" on Linux).
 # windows_keyring defaults to linux_keyring; Windows decryption uses DPAPI and
 # does not look up a named keyring, but the column must be non-NA.
+# darwin_keyring is the macOS Keychain service "<darwin_keyring> Safe Storage"
+# (account "<darwin_keyring>"), as used by yt-dlp; it defaults to
+# windows_keyring, which already holds the macOS names.
 chromium <- function(
   browser,
   linux = character(),
   linux_keyring = NA_character_,
   windows = character(),
-  windows_keyring = linux_keyring
+  windows_keyring = linux_keyring,
+  darwin = character(),
+  darwin_keyring = windows_keyring
 ) {
   rows <- list()
   if (length(linux) > 0) {
@@ -81,6 +86,17 @@ chromium <- function(
       path = sub("^[^\\\\]+\\\\", "", windows),
       cookie_file = "Cookies",
       keyring_name = windows_keyring
+    )
+  }
+  if (length(darwin) > 0) {
+    rows$darwin <- tibble::tibble(
+      os = "Darwin",
+      browser = browser,
+      engine = "chromium",
+      env = NA_character_,
+      path = darwin,
+      cookie_file = "Cookies",
+      keyring_name = darwin_keyring
     )
   }
   do.call(rbind, rows)
@@ -140,7 +156,8 @@ cookie_dirs <- rbind(
       "~/.var/app/com.google.Chrome/config/google-chrome"
     ),
     linux_keyring = "Chrome",
-    windows = "LOCALAPPDATA\\Google\\Chrome\\User Data"
+    windows = "LOCALAPPDATA\\Google\\Chrome\\User Data",
+    darwin = "~/Library/Application Support/Google/Chrome"
   ),
   chromium(
     "Chromium",
@@ -151,7 +168,8 @@ cookie_dirs <- rbind(
       "~/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium"
     ),
     linux_keyring = "Chromium",
-    windows = "LOCALAPPDATA\\Chromium\\User Data"
+    windows = "LOCALAPPDATA\\Chromium\\User Data",
+    darwin = "~/Library/Application Support/Chromium"
   ),
   chromium(
     "Brave",
@@ -160,7 +178,8 @@ cookie_dirs <- rbind(
       "~/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser"
     ),
     linux_keyring = "Brave",
-    windows = "LOCALAPPDATA\\BraveSoftware\\Brave-Browser\\User Data"
+    windows = "LOCALAPPDATA\\BraveSoftware\\Brave-Browser\\User Data",
+    darwin = "~/Library/Application Support/BraveSoftware/Brave-Browser"
   ),
   chromium(
     "Edge",
@@ -170,7 +189,8 @@ cookie_dirs <- rbind(
     ),
     linux_keyring = "Chromium",
     windows = "LOCALAPPDATA\\Microsoft\\Edge\\User Data",
-    windows_keyring = "Microsoft Edge"
+    windows_keyring = "Microsoft Edge",
+    darwin = "~/Library/Application Support/Microsoft Edge"
   ),
   chromium(
     "Vivaldi",
@@ -180,7 +200,8 @@ cookie_dirs <- rbind(
     ),
     linux_keyring = "Chrome",
     windows = "LOCALAPPDATA\\Vivaldi\\User Data",
-    windows_keyring = "Vivaldi"
+    windows_keyring = "Vivaldi",
+    darwin = "~/Library/Application Support/Vivaldi"
   ),
   chromium(
     "Opera",
@@ -190,7 +211,23 @@ cookie_dirs <- rbind(
     ),
     linux_keyring = "Chromium",
     windows = "APPDATA\\Opera Software\\Opera Stable",
-    windows_keyring = "Opera"
+    windows_keyring = "Opera",
+    darwin = "~/Library/Application Support/com.operasoftware.Opera"
+  ),
+  # Safari keeps one cookie file. The sandboxed location is used since macOS
+  # 10.14; the legacy location is only searched if the sandboxed one is absent
+  # (see find_cookiejar()).
+  tibble::tibble(
+    os = "Darwin",
+    browser = "Safari",
+    engine = "safari",
+    env = NA_character_,
+    path = c(
+      "~/Library/Containers/com.apple.Safari/Data/Library/Cookies",
+      "~/Library/Cookies"
+    ),
+    cookie_file = "Cookies.binarycookies",
+    keyring_name = NA_character_
   )
 )
 

@@ -1,10 +1,15 @@
 CMD
 Codecov
+DPAPI
 Flatpak
 Floorp
+GCM
 HTTPonly
 KWallet
+Keychain
 LibreWolf
+PowerShell
+RStudio
 Renviron
 SQLite
 WAL

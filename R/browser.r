@@ -14,15 +14,20 @@
 #' | Zen       | yes   | yes   | yes     |
 #' | Waterfox  | yes   | yes   | yes     |
 #' | Floorp    | yes   | yes   | yes     |
-#' | Chrome    | yes   | no    | yes     |
-#' | Chromium  | yes   | no    | yes     |
-#' | Brave     | yes   | no    | yes     |
-#' | Edge      | yes   | no    | yes     |
-#' | Vivaldi   | yes   | no    | yes     |
-#' | Opera     | yes   | no    | yes     |
+#' | Chrome    | yes   | yes   | yes     |
+#' | Chromium  | yes   | yes   | yes     |
+#' | Brave     | yes   | yes   | yes     |
+#' | Edge      | yes   | yes   | yes     |
+#' | Vivaldi   | yes   | yes   | yes     |
+#' | Opera     | yes   | yes   | yes     |
+#' | Safari    | -     | yes   | -       |
 #'
-#' Chromium-based browsers on macOS and Safari are not supported yet. Until
-#' then, export a `cookies.txt` file or use `add_cookies(session = ...)`.
+#' If your browser is missing or its cookies can't be read, export a
+#' `cookies.txt` file or use `add_cookies(session = ...)` instead.
+#'
+#' The browser database is copied to a temporary directory before it is read,
+#' so the browser can usually stay open. Cookie values are only held in memory;
+#' they are encrypted once you put them in the jar with [store_cookies()].
 #'
 #' @section Chromium-based browsers on Windows:
 #'
@@ -36,10 +41,6 @@
 #' rest of the cookie jar is returned. Export a `cookies.txt` file or use
 #' `add_cookies(session = ...)` to work around this.
 #'
-#' The browser database is copied to a temporary directory before it is read,
-#' so the browser can stay open. Cookie values are only held in memory; they
-#' are encrypted once you put them in the jar with [store_cookies()].
-#'
 #' @section Chromium-based browsers on Linux:
 #'
 #' Chromium-based browsers encrypt their cookies with a password that is kept
@@ -48,6 +49,21 @@
 #' distribution) or `kwallet-query` (KDE), so one of them needs to be
 #' installed. Your keyring might ask you to unlock it. Cookies that can't be
 #' decrypted are dropped with a warning.
+#'
+#' @section Chromium-based browsers on macOS:
+#'
+#' Chromium-based browsers encrypt their cookies with a password that is kept
+#' in the macOS Keychain (e.g., "Chrome Safe Storage"). It is read with the
+#' `security` command line tool, which makes macOS ask you whether R (or the
+#' app you run it in) may access the entry; choose "Always Allow" to not be
+#' asked every time. Cookies that can't be decrypted are dropped with a
+#' warning.
+#'
+#' @section Safari:
+#'
+#' Safari's cookie file is protected by macOS. To read it, the app you run R in
+#' (e.g., RStudio, Positron or Terminal) needs Full Disk Access: open System
+#' Settings > Privacy & Security > Full Disk Access, add the app and restart it.
 #'
 #' @param browser A character string specifying the browser to get cookies from
 #'   (case-insensitive, see the section "Supported browsers"). Defaults to "Firefox".
@@ -64,22 +80,31 @@
 #' store_cookies(cookies)
 #' }
 get_cookies_from_browser <- function(browser = "Firefox") {
-  rlang::check_installed(c("DBI", "RSQLite"))
+  jars <- find_cookiejar(browser)
+  if (nrow(jars) == 0L) {
+    searched <- attr(jars, "searched")
+    cli::cli_abort(c(
+      "No cookie database for {.val {browser}} found.",
+      "i" = "Searched in: {.path {searched}}",
+      if (tolower(browser) == "safari") {
+        c(
+          "i" = "Safari's cookies are protected by macOS. Give the app you run
+          R in Full Disk Access under System Settings > Privacy & Security >
+          Full Disk Access, then restart it."
+        )
+      }
+    ))
+  }
+
+  if (any(jars$engine != "safari")) {
+    rlang::check_installed(c("DBI", "RSQLite"))
+  }
   # Some RSQLite binaries (e.g., from Posit Package Manager) ship their own,
   # older libcurl and make its symbols global on dbConnect(). If curl is loaded
   # after that, it binds to the wrong libcurl and every httr2/curl request fails
   # with "An unknown option was passed in to libcurl". Loading curl first avoids
   # this.
   requireNamespace("curl", quietly = TRUE)
-
-  jars <- find_cookiejar(browser)
-  if (nrow(jars) == 0L) {
-    searched <- attr(jars, "searched")
-    cli::cli_abort(c(
-      "No cookie database for {.val {browser}} found.",
-      "i" = "Searched in: {.path {searched}}"
-    ))
-  }
 
   cookies <- lapply(seq_len(nrow(jars)), function(i) {
     read_cookie_db(
@@ -166,6 +191,11 @@ find_cookiejar <- function(
     !!!found
   )
   out <- prefer_network_dir(out)
+  # Safari has a single cookie file: the legacy location can hold a stale copy
+  safari <- which(out$engine == "safari")
+  if (length(safari) > 1L) {
+    out <- out[-safari[-1L], ]
+  }
   attr(out, "searched") <- sel$root
   out
 }
@@ -191,32 +221,53 @@ prefer_network_dir <- function(jars) {
 #' @param db_file path to the cookie database.
 #' @param engine browser engine, used to dispatch `prep_db()`.
 #' @param keyring_name Chromium only: name of the browser's keyring entry.
+#' @param root Chromium on Windows only: the browser's User Data directory.
 #' @return a tibble in the common cookie schema.
 #' @noRd
-read_cookie_db <- function(db_file, engine, keyring_name = NA_character_, root = NA_character_) {
+read_cookie_db <- function(
+  db_file,
+  engine,
+  keyring_name = NA_character_,
+  root = NA_character_
+) {
   tmp <- tempfile("cookiemonster")
   dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
 
   files <- paste0(db_file, c("", "-wal", "-shm"))
   files <- files[file.exists(files)]
-  copied <- file.copy(files, tmp)
+  copied <- suppressWarnings(file.copy(files, tmp))
   if (!isTRUE(copied[1])) {
+    if (identical(engine, "safari")) {
+      cli::cli_abort(c(
+        "Could not copy the cookie database {.path {db_file}}.",
+        "i" = "Safari's cookies are protected by macOS. Give the app you run R
+        in (e.g., RStudio, Positron or Terminal) Full Disk Access under System
+        Settings > Privacy & Security > Full Disk Access, then restart it."
+      ))
+    }
     cli::cli_abort(c(
       "Could not copy the cookie database {.path {db_file}}.",
       "i" = "If the browser is running, close it and try again."
     ))
   }
+  local_file <- file.path(tmp, basename(db_file))
 
-  conn <- DBI::dbConnect(
-    RSQLite::SQLite(),
-    file.path(tmp, basename(db_file)),
-    bigint = "numeric"
-  )
-  on.exit(DBI::dbDisconnect(conn), add = TRUE, after = FALSE)
+  # Safari's cookie file is not an SQLite database
+  conn <- NULL
+  if (!identical(engine, "safari")) {
+    conn <- DBI::dbConnect(RSQLite::SQLite(), local_file, bigint = "numeric")
+    on.exit(DBI::dbDisconnect(conn), add = TRUE, after = FALSE)
+  }
 
   db <- structure(
-    list(conn = conn, path = db_file, keyring_name = keyring_name, root = root),
+    list(
+      conn = conn,
+      file = local_file,
+      path = db_file,
+      keyring_name = keyring_name,
+      root = root
+    ),
     class = c(engine, "cookie_db")
   )
   prep_db(db)
@@ -224,9 +275,9 @@ read_cookie_db <- function(db_file, engine, keyring_name = NA_character_, root =
 
 
 #' Convert a browser's cookie database into the common cookie schema
-#' @param db a list with elements `conn` (a DBI connection), `path` (path to
-#'   the original database) and `keyring_name` of class
-#'   `c(<engine>, "cookie_db")`.
+#' @param db a list of class `c(<engine>, "cookie_db")` with elements `conn`
+#'   (a DBI connection, `NULL` for Safari), `file` (path to the temporary
+#'   copy), `path` (path to the original database), `keyring_name` and `root`.
 #' @noRd
 prep_db <- function(db) {
   UseMethod("prep_db")
@@ -308,9 +359,10 @@ prep_db.chromium <- function(db) {
     )
     failed <- is.na(value)
     if (any(failed)) {
+      store <- if (current_os() == "Darwin") "macOS Keychain" else "keyring"
       cli::cli_warn(c(
         "{sum(failed)} cookie{?s} in {.path {db$path}} could not be decrypted and {?was/were} dropped.",
-        "i" = "The browser's password could not be read from the keyring or did not fit."
+        "i" = "The browser's password could not be read from the {store} or did not fit."
       ))
     }
   }
@@ -331,13 +383,145 @@ prep_db.chromium <- function(db) {
 }
 
 
-#' Decrypt the values of Chromium cookies
+#' @exportS3Method
+#' @noRd
+prep_db.safari <- function(db) {
+  data <- readBin(db$file, "raw", n = file.size(db$file))
+  parse_binarycookies(data, path = db$path)
+}
+
+
+#' Parse Safari's `Cookies.binarycookies` file
+#'
+#' The format is undocumented; this follows the layout used by yt-dlp
+#' (`_parse_safari_cookies()`) and other readers:
+#'
+#' - header: signature `"cook"`, number of pages (uint32, big-endian), then the
+#'   size of each page (uint32, big-endian), followed by the pages and a
+#'   checksum/footer that is ignored.
+#' - page: signature `00 00 01 00`, number of cookies (uint32, little-endian),
+#'   then one offset per cookie record (uint32, little-endian, relative to the
+#'   start of the page).
+#' - record (all little-endian, offsets relative to the start of the record):
+#'   size (uint32), unknown (4 bytes), flags (uint32; bit 1: secure, bit 3:
+#'   HttpOnly), unknown (4 bytes), offsets of the domain, name, path and value
+#'   strings (uint32 each), unknown (8 bytes), expiry and creation time
+#'   (doubles, seconds since 2001-01-01 UTC), then the NUL-terminated strings.
+#'
+#' @param data raw vector with the file's content.
+#' @param path path of the file, used in error messages.
+#' @return a tibble in the common cookie schema.
+#' @noRd
+parse_binarycookies <- function(data, path = "Cookies.binarycookies") {
+  bad <- function(what) {
+    cli::cli_abort(
+      "{.path {path}} is not a valid Safari cookie file ({what}).",
+      call = NULL
+    )
+  }
+  uint <- function(x, at, endian = "little") {
+    if (at + 4 > length(x)) {
+      bad("unexpected end of data")
+    }
+    out <- readBin(x[at + 1:4], "integer", size = 4, endian = endian)
+    # readBin() reads signed integers
+    if (out < 0) out + 2^32 else out
+  }
+
+  if (length(data) < 8L || !identical(data[1:4], charToRaw("cook"))) {
+    bad("missing signature")
+  }
+  n_pages <- uint(data, 4, "big")
+  page_sizes <- vapply(
+    seq_len(n_pages),
+    function(i) uint(data, 4 + 4 * i, "big"),
+    numeric(1)
+  )
+  page_starts <- 8 + 4 * n_pages + cumsum(c(0, page_sizes))[seq_len(n_pages)]
+  if (8 + 4 * n_pages + sum(page_sizes) > length(data)) {
+    bad("unexpected end of data")
+  }
+
+  records <- list()
+  for (i in seq_len(n_pages)) {
+    page <- data[page_starts[i] + seq_len(page_sizes[i])]
+    if (length(page) < 8L || !identical(page[1:4], as.raw(c(0, 0, 1, 0)))) {
+      bad("missing page signature")
+    }
+    n_cookies <- uint(page, 4)
+    offsets <- vapply(
+      seq_len(n_cookies),
+      function(j) uint(page, 4 + 4 * j),
+      numeric(1)
+    )
+    for (offset in offsets) {
+      size <- uint(page, offset)
+      if (size < 56 || offset + size > length(page)) {
+        bad("invalid cookie record")
+      }
+      records[[length(records) + 1L]] <- parse_binarycookies_record(
+        page[offset + seq_len(size)],
+        bad
+      )
+    }
+  }
+
+  col <- function(name, type) vapply(records, `[[`, type, name)
+  domain <- col("domain", character(1))
+  new_cookie_tbl(
+    domain = domain,
+    flag = startsWith(domain, "."),
+    path = col("path", character(1)),
+    secure = col("secure", logical(1)),
+    expiration = col("expiration", numeric(1)),
+    name = col("name", character(1)),
+    value = col("value", character(1))
+  )
+}
+
+
+#' @noRd
+parse_binarycookies_record <- function(rec, bad) {
+  uint <- function(at) {
+    out <- readBin(rec[at + 1:4], "integer", size = 4, endian = "little")
+    if (out < 0) out + 2^32 else out
+  }
+  cstring <- function(at) {
+    if (at >= length(rec)) {
+      bad("invalid string offset")
+    }
+    rest <- rec[(at + 1):length(rec)]
+    end <- match(as.raw(0), rest)
+    if (is.na(end)) {
+      bad("unterminated string")
+    }
+    out <- rawToChar(rest[seq_len(end - 1L)])
+    Encoding(out) <- "UTF-8"
+    out
+  }
+  flags <- uint(8)
+  # seconds since 2001-01-01 00:00:00 UTC
+  expiry <- readBin(rec[41:48], "double", size = 8, endian = "little")
+  list(
+    domain = cstring(uint(16)),
+    name = cstring(uint(20)),
+    path = cstring(uint(24)),
+    value = cstring(uint(28)),
+    secure = bitwAnd(flags, 1L) > 0L,
+    expiration = expiry + 978307200
+  )
+}
+
+
+#' Decrypt the values of Chromium cookies (Linux and macOS)
 #'
 #' Encrypted values start with a version prefix. On Linux, `v10` values use a
 #' key derived from the hard-coded password "peanuts", `v11` values a key
 #' derived from a password in the keyring. Both fall back to a key derived from
-#' an empty password, which Chromium uses when the keyring is unavailable. See
-#' `components/os_crypt` in the Chromium sources.
+#' an empty password, which Chromium uses when the keyring is unavailable. On
+#' macOS, `v10` values use a key derived from a password in the Keychain (with
+#' 1003 PBKDF2 iterations instead of 1). See `components/os_crypt` in the
+#' Chromium sources.
 #'
 #' @param encrypted list of raw vectors (the `encrypted_value` column).
 #' @param value character vector (the `value` column), used where nothing is
@@ -346,6 +530,7 @@ prep_db.chromium <- function(db) {
 #' @param meta_version version of the database (`meta` table). From version 24
 #'   on, the plain text starts with the SHA-256 hash of `host_key`.
 #' @param keyring_name name of the keyring entry.
+#' @param os operating system, as returned by `current_os()`.
 #' @return character vector of values; `NA` where decryption failed.
 #' @noRd
 decrypt_chromium_values <- function(
@@ -353,7 +538,8 @@ decrypt_chromium_values <- function(
   value,
   host_key,
   meta_version,
-  keyring_name
+  keyring_name,
+  os = current_os()
 ) {
   value <- as.character(value)
   prefix <- vapply(
@@ -366,14 +552,24 @@ decrypt_chromium_values <- function(
     return(value)
   }
 
-  empty_key <- chromium_linux_key("")
-  keys <- list(v10 = list(chromium_linux_key("peanuts"), empty_key))
-  if (any(prefix[todo] == "v11")) {
-    password <- get_chromium_password(keyring_name)
-    keys$v11 <- c(
-      if (!is.null(password)) list(chromium_linux_key(password)),
-      list(empty_key)
-    )
+  if (os == "Darwin") {
+    keys <- list()
+    if (any(prefix[todo] == "v10")) {
+      password <- get_chromium_password_mac(keyring_name)
+      if (!is.null(password)) {
+        keys$v10 <- list(chromium_mac_key(password))
+      }
+    }
+  } else {
+    empty_key <- chromium_linux_key("")
+    keys <- list(v10 = list(chromium_linux_key("peanuts"), empty_key))
+    if (any(prefix[todo] == "v11")) {
+      password <- get_chromium_password(keyring_name)
+      keys$v11 <- c(
+        if (!is.null(password)) list(chromium_linux_key(password)),
+        list(empty_key)
+      )
+    }
   }
 
   for (i in todo) {
@@ -464,7 +660,9 @@ decrypt_chromium_values_windows <- function(
     value[v20_idx] <- NA_character_
   }
 
-  todo <- which(lengths(encrypted) > 0L & (is.na(value) | value == "") & prefix == "v10")
+  todo <- which(
+    lengths(encrypted) > 0L & (is.na(value) | value == "") & prefix == "v10"
+  )
   if (length(todo) == 0L) {
     return(value)
   }
@@ -517,7 +715,9 @@ get_chromium_key_windows <- function(root) {
   }
   raw_key <- openssl::base64_decode(b64)
   if (length(raw_key) < 5L || rawToChar(raw_key[1:5]) != "DPAPI") {
-    cli::cli_abort("Unexpected format in {.path {local_state}}: missing DPAPI prefix.")
+    cli::cli_abort(
+      "Unexpected format in {.path {local_state}}: missing DPAPI prefix."
+    )
   }
   dpapi_unprotect(raw_key[-(1:5)])
 }
@@ -535,7 +735,9 @@ dpapi_unprotect <- function(raw_bytes) {
   b64_in <- openssl::base64_encode(raw_bytes, linebreaks = FALSE)
   ps <- paste0(
     "Add-Type -AssemblyName System.Security\n",
-    "$e = [Convert]::FromBase64String('", b64_in, "')\n",
+    "$e = [Convert]::FromBase64String('",
+    b64_in,
+    "')\n",
     "$d = [System.Security.Cryptography.ProtectedData]::Unprotect(",
     "$e, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)\n",
     "[Convert]::ToBase64String($d)\n"
@@ -557,8 +759,12 @@ run_powershell_script <- function(path) {
   suppressWarnings(system2(
     "powershell",
     c(
-      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-      "-File", shQuote(path)
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      shQuote(path)
     ),
     stdout = TRUE,
     stderr = FALSE
@@ -614,6 +820,41 @@ decrypt_chromium_value_gcm <- function(ciphertext, key, host_key, hash_prefix) {
 #' @noRd
 chromium_linux_key <- function(password) {
   pbkdf2_sha1(password, "saltysalt", iterations = 1, key_length = 16)
+}
+
+
+#' @noRd
+chromium_mac_key <- function(password) {
+  pbkdf2_sha1(password, "saltysalt", iterations = 1003, key_length = 16)
+}
+
+
+#' Read a Chromium browser's password from the macOS Keychain
+#'
+#' The entry is a generic password with service "<keyring_name> Safe Storage"
+#' and account "<keyring_name>". macOS asks the user to allow access.
+#'
+#' @param keyring_name name of the Keychain entry, e.g. "Chrome".
+#' @return the password as a string, or `NULL` if none was found.
+#' @noRd
+get_chromium_password_mac <- function(keyring_name) {
+  service <- paste(keyring_name, "Safe Storage")
+  cli::cli_inform(c(
+    "i" = "Reading the password {.val {service}} from the macOS Keychain.
+    macOS might ask you to allow this (choose {.emph Always Allow} to not be
+    asked again)."
+  ))
+  run_quietly(
+    "security",
+    c(
+      "find-generic-password",
+      "-w",
+      "-a",
+      shQuote(keyring_name),
+      "-s",
+      shQuote(service)
+    )
+  )
 }
 
 

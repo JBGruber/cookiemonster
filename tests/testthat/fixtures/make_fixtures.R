@@ -81,7 +81,12 @@ chromium_encrypt <- function(value, host_key, key, prefix, hash_prefix) {
   c(charToRaw(prefix), as.raw(ct))
 }
 
-make_chromium_db <- function(file, meta_version) {
+make_chromium_db <- function(
+  file,
+  meta_version,
+  cookies = chromium_cookies,
+  keys = chromium_keys
+) {
   unlink(file)
   conn <- DBI::dbConnect(RSQLite::SQLite(), file)
   on.exit(DBI::dbDisconnect(conn))
@@ -93,7 +98,7 @@ make_chromium_db <- function(file, meta_version) {
     "INSERT INTO meta VALUES ('version', ?)",
     params = list(as.character(meta_version))
   )
-  ck <- chromium_cookies
+  ck <- cookies
   encrypted <- lapply(seq_len(nrow(ck)), function(i) {
     if (is.na(ck$key[i])) {
       return(raw())
@@ -101,7 +106,7 @@ make_chromium_db <- function(file, meta_version) {
     chromium_encrypt(
       ck$value[i],
       ck$host_key[i],
-      chromium_keys[[ck$key[i]]],
+      keys[[ck$key[i]]],
       ck$prefix[i],
       hash_prefix = meta_version >= 24
     )
@@ -142,13 +147,13 @@ make_chromium_db(file.path(fixture_dir, "chromium_cookies_v24.sqlite"), 24)
 chromium_windows_key <- as.raw(0:31)
 
 chromium_windows_cookies <- data.frame(
-  host_key  = c(".example.com",  "www.example.com", ".blocked.test"),
-  name      = c("session_id",    "theme",           "v20_cookie"),
-  value     = c("secret",        "light",           "blocked"),
-  prefix    = c("v10",           NA,                "v20"),
-  path      = c("/",             "/",               "/"),
-  expiry    = c(2147483647,      0,                 2147483647),
-  is_secure = c(1L,              0L,                0L)
+  host_key = c(".example.com", "www.example.com", ".blocked.test"),
+  name = c("session_id", "theme", "v20_cookie"),
+  value = c("secret", "light", "blocked"),
+  prefix = c("v10", NA, "v20"),
+  path = c("/", "/", "/"),
+  expiry = c(2147483647, 0, 2147483647),
+  is_secure = c(1L, 0L, 0L)
 )
 
 chromium_gcm_encrypt <- function(value, host_key, key, hash_prefix) {
@@ -156,7 +161,7 @@ chromium_gcm_encrypt <- function(value, host_key, key, hash_prefix) {
   if (hash_prefix) {
     plain <- c(as.raw(openssl::sha256(charToRaw(host_key))), plain)
   }
-  nonce <- as.raw(1:12)  # fixed nonce so the fixture is reproducible
+  nonce <- as.raw(1:12) # fixed nonce so the fixture is reproducible
   ct <- openssl::aes_gcm_encrypt(plain, key, iv = nonce)
   # aes_gcm_encrypt() returns ciphertext with the 16-byte tag as attr("tag");
   # Chromium stores the layout as: prefix | nonce | ciphertext | tag
@@ -220,3 +225,109 @@ make_chromium_windows_db(
   file.path(fixture_dir, "chromium_cookies_windows_v24.sqlite"),
   24
 )
+
+# Chromium (macOS) -------------------------------------------------------------
+# Key: PBKDF2-HMAC-SHA1("cookie-jar-password", "saltysalt", 1003 iterations,
+# 16 bytes), computed with Python's hashlib.pbkdf2_hmac(). The password is
+# mocked in the tests.
+chromium_mac_keys <- list(
+  keychain = "c79edee7078e087d6cbe69ec29e85bc3"
+)
+chromium_mac_keys <- lapply(chromium_mac_keys, function(hex) {
+  as.raw(strtoi(substring(hex, seq(1, 31, 2), seq(2, 32, 2)), 16L))
+})
+
+chromium_mac_cookies <- data.frame(
+  host_key = c(".example.com", "www.example.com", ".apple.test"),
+  name = c("session_id", "theme", "pie"),
+  value = c("abc123", "dark", "crumble"),
+  key = c("keychain", NA, "keychain"),
+  prefix = c("v10", NA, "v10"),
+  path = c("/", "/", "/orchard"),
+  expiry = c(2147483647, 0, 1700000000),
+  is_secure = c(1L, 0L, 1L)
+)
+
+make_chromium_db(
+  file.path(fixture_dir, "chromium_cookies_mac_v24.sqlite"),
+  24,
+  cookies = chromium_mac_cookies,
+  keys = chromium_mac_keys
+)
+
+# Safari -----------------------------------------------------------------------
+# Cookies.binarycookies, written byte by byte following the layout documented
+# in parse_binarycookies(). Two pages, to test page handling.
+safari_cookies <- data.frame(
+  domain = c(".example.com", "www.example.com", ".apple.test"),
+  name = c("session_id", "theme", "pie"),
+  path = c("/", "/", "/orchard"),
+  value = c("abc123", "dark", "crumble"),
+  flags = c(5L, 0L, 1L), # 1: secure, 4: HttpOnly
+  expiry = c(2147483647, 1700000000, 1800000000),
+  page = c(1L, 1L, 2L)
+)
+
+uint32 <- function(x, endian = "little") {
+  writeBin(as.integer(x), raw(), size = 4, endian = endian)
+}
+cstring <- function(x) c(charToRaw(x), as.raw(0))
+
+safari_record <- function(ck) {
+  strings <- list(
+    cstring(ck$domain),
+    cstring(ck$name),
+    cstring(ck$path),
+    cstring(ck$value)
+  )
+  header_size <- 56
+  offsets <- header_size + cumsum(c(0, lengths(strings)))[1:4]
+  size <- header_size + sum(lengths(strings))
+  mac_epoch <- 978307200
+  c(
+    uint32(size),
+    uint32(0),
+    uint32(ck$flags),
+    uint32(0),
+    uint32(offsets),
+    uint32(0), # comment offset (none)
+    uint32(0), # end of header
+    writeBin(ck$expiry - mac_epoch, raw(), size = 8, endian = "little"),
+    writeBin(1600000000 - mac_epoch, raw(), size = 8, endian = "little"),
+    unlist(strings)
+  )
+}
+
+safari_page <- function(cks) {
+  records <- lapply(seq_len(nrow(cks)), function(i) safari_record(cks[i, ]))
+  header_size <- 4 + 4 + 4 * length(records) + 4
+  offsets <- header_size + cumsum(c(0, lengths(records)))[seq_along(records)]
+  c(
+    as.raw(c(0, 0, 1, 0)),
+    uint32(length(records)),
+    uint32(offsets),
+    uint32(0), # end of page header
+    unlist(records)
+  )
+}
+
+make_safari_file <- function(file) {
+  pages <- lapply(split(safari_cookies, safari_cookies$page), safari_page)
+  # checksum: sum of every fourth byte of each page
+  checksum <- sum(vapply(
+    pages,
+    function(p) sum(as.integer(p[seq(1, length(p), 4)])),
+    numeric(1)
+  ))
+  bytes <- c(
+    charToRaw("cook"),
+    uint32(length(pages), "big"),
+    uint32(lengths(pages), "big"),
+    unlist(pages),
+    uint32(checksum, "big"),
+    as.raw(c(0x07, 0x17, 0x20, 0x05, 0x00, 0x00, 0x00, 0x4b))
+  )
+  writeBin(bytes, file)
+}
+
+make_safari_file(file.path(fixture_dir, "Cookies.binarycookies"))

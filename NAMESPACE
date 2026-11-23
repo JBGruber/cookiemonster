@@ -3,6 +3,7 @@
 S3method(prep_db,chromium)
 S3method(prep_db,default)
 S3method(prep_db,firefox)
+S3method(prep_db,safari)
 export(add_cookies)
 export(decrypt_vec)
 export(default_jar)

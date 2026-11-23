@@ -178,7 +178,7 @@ test_that("v20 cookies produce a warning and are dropped", {
 
 test_that("dpapi_unprotect() calls PowerShell and decodes the result", {
   local_mocked_bindings(
-    run_powershell_script = function(path) "aGVsbG8="  # base64("hello")
+    run_powershell_script = function(path) "aGVsbG8=" # base64("hello")
   )
   result <- dpapi_unprotect(as.raw(1:4))
   expect_type(result, "raw")
@@ -187,12 +187,14 @@ test_that("dpapi_unprotect() calls PowerShell and decodes the result", {
 
 test_that("get_chromium_key_windows() reads and strips the DPAPI prefix", {
   dir <- withr::local_tempdir()
-  local_state <- list(os_crypt = list(
-    encrypted_key = openssl::base64_encode(
-      c(charToRaw("DPAPI"), as.raw(1:4)),
-      linebreaks = FALSE
+  local_state <- list(
+    os_crypt = list(
+      encrypted_key = openssl::base64_encode(
+        c(charToRaw("DPAPI"), as.raw(1:4)),
+        linebreaks = FALSE
+      )
     )
-  ))
+  )
   jsonlite::write_json(local_state, file.path(dir, "Local State"))
   local_mocked_bindings(dpapi_unprotect = function(raw_bytes) {
     expect_equal(raw_bytes, as.raw(1:4))
@@ -214,7 +216,12 @@ test_that("decrypt_chromium_value_gcm() checks the hash prefix", {
   ct <- c(nonce, as.raw(raw_ct), attr(raw_ct, "tag"))
   expect_equal(decrypt_chromium_value_gcm(ct, key, "a.test", TRUE), "crumb")
   expect_null(decrypt_chromium_value_gcm(ct, key, "b.test", TRUE))
-  expect_null(decrypt_chromium_value_gcm(ct, as.raw(rep(0L, 32L)), "a.test", TRUE))
+  expect_null(decrypt_chromium_value_gcm(
+    ct,
+    as.raw(rep(0L, 32L)),
+    "a.test",
+    TRUE
+  ))
 })
 
 test_that("decrypt_chromium_value() checks the hash prefix", {
@@ -265,6 +272,133 @@ test_that("missing keyring tools give no password", {
   expect_null(get_chromium_password("Chrome"))
 })
 
+test_that("Chromium macOS databases are decrypted with the Keychain password", {
+  local_mocked_bindings(current_os = function() "Darwin")
+  local_mocked_bindings(
+    get_chromium_password_mac = function(keyring_name) {
+      expect_equal(keyring_name, "Microsoft Edge")
+      "cookie-jar-password"
+    }
+  )
+  cookies <- read_cookie_db(
+    fixture("chromium_cookies_mac_v24.sqlite"),
+    "chromium",
+    keyring_name = "Microsoft Edge"
+  )
+  expect_named(cookies, cookie_cols)
+  expect_s3_class(cookies$expiration, "POSIXct")
+  expect_equal(
+    cookies$domain,
+    c(".example.com", "www.example.com", ".apple.test")
+  )
+  expect_equal(cookies$flag, c(TRUE, FALSE, TRUE))
+  expect_equal(cookies$secure, c(TRUE, FALSE, TRUE))
+  expect_equal(cookies$path, c("/", "/", "/orchard"))
+  expect_equal(as.numeric(cookies$expiration), c(2147483647, 0, 1700000000))
+  expect_equal(cookies$name, c("session_id", "theme", "pie"))
+  expect_equal(cookies$value, c("abc123", "dark", "crumble"))
+})
+
+test_that("Chromium macOS cookies without a fitting password are dropped", {
+  local_mocked_bindings(current_os = function() "Darwin")
+  for (pw in list(NULL, "wrong-password", "peanuts")) {
+    local_mocked_bindings(get_chromium_password_mac = function(keyring_name) pw)
+    expect_warning(
+      cookies <- read_cookie_db(
+        fixture("chromium_cookies_mac_v24.sqlite"),
+        "chromium",
+        keyring_name = "Chrome"
+      ),
+      "2 cookies .* could not be decrypted.*macOS Keychain"
+    )
+    expect_equal(cookies$name, "theme")
+  }
+})
+
+test_that("the macOS Keychain is only asked if there are encrypted values", {
+  local_mocked_bindings(current_os = function() "Darwin")
+  db <- withr::local_tempfile(fileext = ".sqlite")
+  file.copy(fixture("chromium_cookies_mac_v24.sqlite"), db)
+  conn <- DBI::dbConnect(RSQLite::SQLite(), db)
+  DBI::dbExecute(conn, "DELETE FROM cookies WHERE name != 'theme'")
+  DBI::dbDisconnect(conn)
+  local_mocked_bindings(
+    get_chromium_password_mac = function(keyring_name) stop("keychain asked")
+  )
+  cookies <- read_cookie_db(db, "chromium", keyring_name = "Chrome")
+  expect_equal(cookies$value, "dark")
+})
+
+test_that("Chromium passwords are looked up in the macOS Keychain", {
+  call <- NULL
+  local_mocked_bindings(
+    run_quietly = function(command, args) {
+      call <<- c(command, args)
+      "secret"
+    }
+  )
+  expect_message(
+    password <- get_chromium_password_mac("Chrome"),
+    "Chrome Safe Storage"
+  )
+  expect_equal(password, "secret")
+  expect_equal(call[1:3], c("security", "find-generic-password", "-w"))
+  expect_true(shQuote("Chrome Safe Storage") %in% call)
+  expect_true(shQuote("Chrome") %in% call)
+})
+
+test_that("chromium_mac_key() uses 1003 iterations", {
+  # computed with Python's hashlib.pbkdf2_hmac()
+  expect_equal(
+    paste(chromium_mac_key("cookie-jar-password"), collapse = ""),
+    "c79edee7078e087d6cbe69ec29e85bc3"
+  )
+})
+
+test_that("Safari cookie files are read into the common schema", {
+  cookies <- read_cookie_db(fixture("Cookies.binarycookies"), "safari")
+  expect_named(cookies, cookie_cols)
+  expect_s3_class(cookies$expiration, "POSIXct")
+  expect_equal(
+    cookies$domain,
+    c(".example.com", "www.example.com", ".apple.test")
+  )
+  expect_equal(cookies$flag, c(TRUE, FALSE, TRUE))
+  expect_equal(cookies$secure, c(TRUE, FALSE, TRUE))
+  expect_equal(cookies$path, c("/", "/", "/orchard"))
+  expect_equal(
+    as.numeric(cookies$expiration),
+    c(2147483647, 1700000000, 1800000000)
+  )
+  expect_equal(cookies$name, c("session_id", "theme", "pie"))
+  expect_equal(cookies$value, c("abc123", "dark", "crumble"))
+})
+
+test_that("broken Safari cookie files give informative errors", {
+  data <- readBin(
+    fixture("Cookies.binarycookies"),
+    "raw",
+    n = file.size(fixture("Cookies.binarycookies"))
+  )
+  expect_error(parse_binarycookies(charToRaw("SQLite format 3")), "signature")
+  expect_error(parse_binarycookies(data[1:100]), "end of data")
+  broken <- data
+  broken[17:20] <- as.raw(0)
+  expect_error(parse_binarycookies(broken), "page signature")
+  # an empty file with no pages
+  expect_equal(
+    nrow(parse_binarycookies(c(charToRaw("cook"), as.raw(c(0, 0, 0, 0))))),
+    0L
+  )
+})
+
+test_that("Safari's cookie file needs Full Disk Access", {
+  expect_error(
+    read_cookie_db(fixture("does_not_exist.binarycookies"), "safari"),
+    "Full Disk Access"
+  )
+})
+
 test_that("find_cookiejar() finds cookie databases", {
   root <- withr::local_tempdir()
   for (d in c(
@@ -272,7 +406,9 @@ test_that("find_cookiejar() finds cookie databases", {
     "ff/def.work",
     "appdata/Wolf/x.default",
     "chr/Default/Network",
-    "chr/Profile 1"
+    "chr/Profile 1",
+    "sandbox",
+    "legacy"
   )) {
     dir.create(file.path(root, d), recursive = TRUE)
   }
@@ -282,19 +418,23 @@ test_that("find_cookiejar() finds cookie databases", {
     "appdata/Wolf/x.default/cookies.sqlite",
     "chr/Default/Cookies",
     "chr/Default/Network/Cookies",
-    "chr/Profile 1/Cookies"
+    "chr/Profile 1/Cookies",
+    "sandbox/Cookies.binarycookies",
+    "legacy/Cookies.binarycookies"
   )) {
     file.create(file.path(root, f))
   }
   withr::local_envvar(COOKIEMONSTER_TEST_APPDATA = file.path(root, "appdata"))
   dirs <- tibble::tribble(
-    ~os      , ~browser , ~engine    , ~env                         , ~path                   , ~cookie_file     , ~keyring_name ,
-    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")   , "cookies.sqlite" , NA            ,
-    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "nope") , "cookies.sqlite" , NA            ,
-    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_APPDATA" , "Wolf"                  , "cookies.sqlite" , NA            ,
-    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_UNSET"   , "Wolf"                  , "cookies.sqlite" , NA            ,
-    "Linux"  , "Shiny"  , "chromium" , NA                           , file.path(root, "chr")  , "Cookies"        , "Shiny"       ,
-    "Darwin" , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")   , "cookies.sqlite" , NA
+    ~os      , ~browser , ~engine    , ~env                         , ~path                      , ~cookie_file            , ~keyring_name ,
+    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")      , "cookies.sqlite"        , NA            ,
+    "Linux"  , "Fox"    , "firefox"  , NA                           , file.path(root, "nope")    , "cookies.sqlite"        , NA            ,
+    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_APPDATA" , "Wolf"                     , "cookies.sqlite"        , NA            ,
+    "Linux"  , "Wolf"   , "firefox"  , "COOKIEMONSTER_TEST_UNSET"   , "Wolf"                     , "cookies.sqlite"        , NA            ,
+    "Linux"  , "Shiny"  , "chromium" , NA                           , file.path(root, "chr")     , "Cookies"               , "Shiny"       ,
+    "Darwin" , "Safari" , "safari"   , NA                           , file.path(root, "sandbox") , "Cookies.binarycookies" , NA            ,
+    "Darwin" , "Safari" , "safari"   , NA                           , file.path(root, "legacy")  , "Cookies.binarycookies" , NA            ,
+    "Darwin" , "Fox"    , "firefox"  , NA                           , file.path(root, "ff")      , "cookies.sqlite"        , NA
   )
 
   # case-insensitive, multiple profiles, missing dirs are fine
@@ -323,6 +463,13 @@ test_that("find_cookiejar() finds cookie databases", {
     "not supported on Darwin"
   )
   expect_error(find_cookiejar("Shiny", dirs = dirs, os = "Darwin"), "Fox")
+
+  # the sandboxed Safari file wins over the legacy one
+  jars <- find_cookiejar("safari", dirs = dirs, os = "Darwin")
+  expect_equal(jars$path, file.path(root, "sandbox", "Cookies.binarycookies"))
+  file.remove(file.path(root, "sandbox", "Cookies.binarycookies"))
+  jars <- find_cookiejar("safari", dirs = dirs, os = "Darwin")
+  expect_equal(jars$path, file.path(root, "legacy", "Cookies.binarycookies"))
 
   # no database found
   jars <- find_cookiejar("Fox", dirs = dirs[2, ], os = "Linux")
@@ -395,3 +542,23 @@ for (b in c("Chrome", "Chromium", "Brave", "Edge", "Vivaldi", "Opera")) {
     expect_named(cookies, cookie_cols)
   })
 }
+
+for (b in c("Chrome", "Chromium", "Brave", "Edge", "Vivaldi", "Opera")) {
+  test_that(paste("get cookies from", b, "(macOS)"), {
+    skip_on_cran()
+    skip_if_not(current_os() == "Darwin")
+    skip_if(nrow(find_cookiejar(b)) == 0L)
+    cookies <- get_cookies_from_browser(b)
+    expect_named(cookies, cookie_cols)
+    expect_false(anyNA(cookies$value))
+  })
+}
+
+test_that("get cookies from Safari", {
+  skip_on_cran()
+  skip_if_not(current_os() == "Darwin")
+  skip_if(nrow(find_cookiejar("Safari")) == 0L)
+  cookies <- get_cookies_from_browser("Safari")
+  expect_named(cookies, cookie_cols)
+  expect_gt(nrow(cookies), 0L)
+})
