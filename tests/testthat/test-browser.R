@@ -72,7 +72,8 @@ test_that("unknown engines and failed copies give informative errors", {
   )
 })
 
-test_that("Chromium cookie databases are read and decrypted", {
+test_that("Chromium cookie databases are read and decrypted (Linux AES-CBC)", {
+  local_mocked_bindings(current_os = function() "Linux")
   local_mocked_bindings(
     get_chromium_password = function(keyring_name) {
       expect_equal(keyring_name, "Chrome")
@@ -102,6 +103,7 @@ test_that("Chromium cookie databases are read and decrypted", {
 })
 
 test_that("Chromium cookies that can't be decrypted are dropped with a warning", {
+  local_mocked_bindings(current_os = function() "Linux")
   local_mocked_bindings(get_chromium_password = function(keyring_name) NULL)
   expect_warning(
     cookies <- read_cookie_db(
@@ -126,6 +128,7 @@ test_that("Chromium cookies that can't be decrypted are dropped with a warning",
 })
 
 test_that("the keyring is only asked if there are v11 values", {
+  local_mocked_bindings(current_os = function() "Linux")
   db <- withr::local_tempfile(fileext = ".sqlite")
   file.copy(fixture("chromium_cookies_v24.sqlite"), db)
   conn <- DBI::dbConnect(RSQLite::SQLite(), db)
@@ -136,6 +139,82 @@ test_that("the keyring is only asked if there are v11 values", {
   )
   cookies <- read_cookie_db(db, "chromium", keyring_name = "Chrome")
   expect_equal(cookies$value, c("abc123", "dark", "yes"))
+})
+
+test_that("Chromium Windows databases are decrypted with AES-256-GCM", {
+  local_mocked_bindings(current_os = function() "Windows")
+  local_mocked_bindings(get_chromium_key_windows = function(root) as.raw(0:31))
+  expect_warning(
+    cookies <- read_cookie_db(
+      fixture("chromium_cookies_windows_v24.sqlite"),
+      "chromium",
+      root = "/fake/User Data"
+    ),
+    "v20"
+  )
+  expect_named(cookies, cookie_cols)
+  expect_s3_class(cookies$expiration, "POSIXct")
+  expect_equal(cookies$domain, c(".example.com", "www.example.com"))
+  expect_equal(cookies$flag, c(TRUE, FALSE))
+  expect_equal(cookies$secure, c(TRUE, FALSE))
+  expect_equal(cookies$name, c("session_id", "theme"))
+  expect_equal(cookies$value, c("secret", "light"))
+  expect_equal(as.numeric(cookies$expiration), c(2147483647, 0))
+})
+
+test_that("v20 cookies produce a warning and are dropped", {
+  local_mocked_bindings(current_os = function() "Windows")
+  local_mocked_bindings(get_chromium_key_windows = function(root) as.raw(0:31))
+  expect_warning(
+    cookies <- read_cookie_db(
+      fixture("chromium_cookies_windows_v24.sqlite"),
+      "chromium",
+      root = "/fake/User Data"
+    ),
+    "app-bound encryption.*v20"
+  )
+  expect_false("v20_cookie" %in% cookies$name)
+})
+
+test_that("dpapi_unprotect() calls PowerShell and decodes the result", {
+  local_mocked_bindings(
+    run_powershell_script = function(path) "aGVsbG8="  # base64("hello")
+  )
+  result <- dpapi_unprotect(as.raw(1:4))
+  expect_type(result, "raw")
+  expect_equal(result, charToRaw("hello"))
+})
+
+test_that("get_chromium_key_windows() reads and strips the DPAPI prefix", {
+  dir <- withr::local_tempdir()
+  local_state <- list(os_crypt = list(
+    encrypted_key = openssl::base64_encode(
+      c(charToRaw("DPAPI"), as.raw(1:4)),
+      linebreaks = FALSE
+    )
+  ))
+  jsonlite::write_json(local_state, file.path(dir, "Local State"))
+  local_mocked_bindings(dpapi_unprotect = function(raw_bytes) {
+    expect_equal(raw_bytes, as.raw(1:4))
+    as.raw(rep(0L, 32L))
+  })
+  key <- get_chromium_key_windows(dir)
+  expect_type(key, "raw")
+  expect_length(key, 32L)
+})
+
+test_that("decrypt_chromium_value_gcm() checks the hash prefix", {
+  key <- as.raw(0:31)
+  nonce <- as.raw(1:12)
+  plain_with_hash <- c(
+    as.raw(openssl::sha256(charToRaw("a.test"))),
+    charToRaw("crumb")
+  )
+  raw_ct <- openssl::aes_gcm_encrypt(plain_with_hash, key, iv = nonce)
+  ct <- c(nonce, as.raw(raw_ct), attr(raw_ct, "tag"))
+  expect_equal(decrypt_chromium_value_gcm(ct, key, "a.test", TRUE), "crumb")
+  expect_null(decrypt_chromium_value_gcm(ct, key, "b.test", TRUE))
+  expect_null(decrypt_chromium_value_gcm(ct, as.raw(rep(0L, 32L)), "a.test", TRUE))
 })
 
 test_that("decrypt_chromium_value() checks the hash prefix", {
@@ -297,12 +376,22 @@ test_that("get cookies from Firefox", {
 
 
 for (b in c("Chrome", "Chromium", "Brave", "Edge", "Vivaldi", "Opera")) {
-  test_that(paste("get cookies from", b), {
+  test_that(paste("get cookies from", b, "(Linux)"), {
     skip_on_cran()
     skip_if_not(current_os() == "Linux")
     skip_if(nrow(find_cookiejar(b)) == 0L)
     cookies <- get_cookies_from_browser(b)
     expect_named(cookies, cookie_cols)
     expect_false(anyNA(cookies$value))
+  })
+}
+
+for (b in c("Chrome", "Chromium", "Brave", "Edge", "Vivaldi", "Opera")) {
+  test_that(paste("get cookies from", b, "(Windows)"), {
+    skip_on_cran()
+    skip_if_not(current_os() == "Windows")
+    skip_if(nrow(find_cookiejar(b)) == 0L)
+    cookies <- get_cookies_from_browser(b)
+    expect_named(cookies, cookie_cols)
   })
 }

@@ -14,16 +14,27 @@
 #' | Zen       | yes   | yes   | yes     |
 #' | Waterfox  | yes   | yes   | yes     |
 #' | Floorp    | yes   | yes   | yes     |
-#' | Chrome    | yes   | no    | no      |
-#' | Chromium  | yes   | no    | no      |
-#' | Brave     | yes   | no    | no      |
-#' | Edge      | yes   | no    | no      |
-#' | Vivaldi   | yes   | no    | no      |
-#' | Opera     | yes   | no    | no      |
+#' | Chrome    | yes   | no    | yes     |
+#' | Chromium  | yes   | no    | yes     |
+#' | Brave     | yes   | no    | yes     |
+#' | Edge      | yes   | no    | yes     |
+#' | Vivaldi   | yes   | no    | yes     |
+#' | Opera     | yes   | no    | yes     |
 #'
-#' Chromium-based browsers on macOS and Windows and Safari are not supported
-#' yet. Until then, export a `cookies.txt` file or use
-#' `add_cookies(session = ...)`.
+#' Chromium-based browsers on macOS and Safari are not supported yet. Until
+#' then, export a `cookies.txt` file or use `add_cookies(session = ...)`.
+#'
+#' @section Chromium-based browsers on Windows:
+#'
+#' Chromium-based browsers encrypt their cookies with an AES-256-GCM key that
+#' is stored DPAPI-protected in `User Data/Local State`. The key is unprotected
+#' via PowerShell and held in memory only. Close the browser before reading its
+#' cookies: Chrome locks the `Cookies` file while running.
+#'
+#' Cookies encrypted with app-bound encryption (prefix `v20`, Chrome 127+ on
+#' Windows) cannot be decrypted. Those cookies are dropped with a warning; the
+#' rest of the cookie jar is returned. Export a `cookies.txt` file or use
+#' `add_cookies(session = ...)` to work around this.
 #'
 #' The browser database is copied to a temporary directory before it is read,
 #' so the browser can stay open. Cookie values are only held in memory; they
@@ -74,7 +85,8 @@ get_cookies_from_browser <- function(browser = "Firefox") {
     read_cookie_db(
       jars$path[i],
       engine = jars$engine[i],
-      keyring_name = jars$keyring_name[i]
+      keyring_name = jars$keyring_name[i],
+      root = jars$root[i]
     )
   })
   vctrs::vec_unique(vctrs::vec_rbind(!!!cookies))
@@ -181,7 +193,7 @@ prefer_network_dir <- function(jars) {
 #' @param keyring_name Chromium only: name of the browser's keyring entry.
 #' @return a tibble in the common cookie schema.
 #' @noRd
-read_cookie_db <- function(db_file, engine, keyring_name = NA_character_) {
+read_cookie_db <- function(db_file, engine, keyring_name = NA_character_, root = NA_character_) {
   tmp <- tempfile("cookiemonster")
   dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
@@ -204,7 +216,7 @@ read_cookie_db <- function(db_file, engine, keyring_name = NA_character_) {
   on.exit(DBI::dbDisconnect(conn), add = TRUE, after = FALSE)
 
   db <- structure(
-    list(conn = conn, path = db_file, keyring_name = keyring_name),
+    list(conn = conn, path = db_file, keyring_name = keyring_name, root = root),
     class = c(engine, "cookie_db")
   )
   prep_db(db)
@@ -277,19 +289,30 @@ prep_db.chromium <- function(db) {
     )
   )
 
-  value <- decrypt_chromium_values(
-    encrypted = cookies$encrypted_value,
-    value = cookies$value,
-    host_key = cookies$host_key,
-    meta_version = meta_version,
-    keyring_name = db$keyring_name
-  )
-  failed <- is.na(value)
-  if (any(failed)) {
-    cli::cli_warn(c(
-      "{sum(failed)} cookie{?s} in {.path {db$path}} could not be decrypted and {?was/were} dropped.",
-      "i" = "The browser's password could not be read from the keyring or did not fit."
-    ))
+  if (current_os() == "Windows") {
+    value <- decrypt_chromium_values_windows(
+      encrypted = cookies$encrypted_value,
+      value = cookies$value,
+      host_key = cookies$host_key,
+      meta_version = meta_version,
+      root = db$root,
+      path = db$path
+    )
+  } else {
+    value <- decrypt_chromium_values(
+      encrypted = cookies$encrypted_value,
+      value = cookies$value,
+      host_key = cookies$host_key,
+      meta_version = meta_version,
+      keyring_name = db$keyring_name
+    )
+    failed <- is.na(value)
+    if (any(failed)) {
+      cli::cli_warn(c(
+        "{sum(failed)} cookie{?s} in {.path {db$path}} could not be decrypted and {?was/were} dropped.",
+        "i" = "The browser's password could not be read from the keyring or did not fit."
+      ))
+    }
   }
 
   # microseconds since 1601-01-01; 0 marks session cookies
@@ -304,7 +327,7 @@ prep_db.chromium <- function(db) {
     expiration = expiration,
     name = cookies$name,
     value = value
-  )[!failed, ]
+  )[!is.na(value), ]
 }
 
 
@@ -392,6 +415,190 @@ decrypt_chromium_value <- function(ciphertext, key, host_key, hash_prefix) {
   if (hash_prefix) {
     hash <- as.raw(openssl::sha256(charToRaw(host_key)))
     if (length(plain) < 32 || !identical(plain[1:32], hash)) {
+      return(NULL)
+    }
+    plain <- plain[-(1:32)]
+  }
+  out <- tryCatch(rawToChar(plain), error = function(e) NULL)
+  if (is.null(out) || !validUTF8(out)) {
+    return(NULL)
+  }
+  out
+}
+
+
+#' Decrypt the values of Chromium cookies on Windows
+#'
+#' On Windows, Chromium stores an AES-256-GCM key DPAPI-protected in the
+#' browser's `Local State` file. `v10` values use this key; `v20` values use
+#' app-bound encryption that cannot be decrypted without browser internals.
+#'
+#' @inheritParams decrypt_chromium_values
+#' @param root path to the browser's User Data directory (contains
+#'   `Local State`).
+#' @param path path to the cookie database (for warning messages only).
+#' @return character vector of values; `NA` where decryption failed or was
+#'   not possible (v20).
+#' @noRd
+decrypt_chromium_values_windows <- function(
+  encrypted,
+  value,
+  host_key,
+  meta_version,
+  root,
+  path
+) {
+  value <- as.character(value)
+  prefix <- vapply(
+    encrypted,
+    function(x) if (length(x) >= 3L) rawToChar(x[1:3]) else "",
+    character(1)
+  )
+
+  v20_idx <- which(prefix == "v20")
+  if (length(v20_idx) > 0L) {
+    cli::cli_warn(c(
+      "{length(v20_idx)} cookie{?s} use app-bound encryption (v20) and {?was/were} dropped.",
+      "i" = "Export a {.file cookies.txt} file or use {.fn add_cookies} with {.arg session} instead."
+    ))
+    value[v20_idx] <- NA_character_
+  }
+
+  todo <- which(lengths(encrypted) > 0L & (is.na(value) | value == "") & prefix == "v10")
+  if (length(todo) == 0L) {
+    return(value)
+  }
+
+  key <- get_chromium_key_windows(root)
+
+  for (i in todo) {
+    value[i] <- NA_character_
+    plain <- decrypt_chromium_value_gcm(
+      ciphertext = encrypted[[i]][-(1:3)],
+      key = key,
+      host_key = host_key[i],
+      hash_prefix = meta_version >= 24L
+    )
+    if (!is.null(plain)) {
+      value[i] <- plain
+    }
+  }
+
+  other_failed <- is.na(value) & !seq_along(value) %in% v20_idx
+  if (any(other_failed)) {
+    cli::cli_warn(c(
+      "{sum(other_failed)} cookie{?s} in {.path {path}} could not be decrypted and {?was/were} dropped.",
+      "i" = "The browser's encryption key could not be read."
+    ))
+  }
+
+  value
+}
+
+
+#' Read and unprotect the AES-256-GCM cookie key from a Chromium `Local State`
+#'
+#' @param root path to the browser's User Data directory.
+#' @return a 32-byte raw vector.
+#' @noRd
+get_chromium_key_windows <- function(root) {
+  rlang::check_installed("jsonlite")
+  local_state <- file.path(root, "Local State")
+  if (!file.exists(local_state)) {
+    cli::cli_abort(c(
+      "Cannot find Chromium encryption key: {.path {local_state}} does not exist.",
+      "i" = "Make sure the browser's User Data directory is correct."
+    ))
+  }
+  ls <- jsonlite::fromJSON(local_state, simplifyVector = TRUE)
+  b64 <- ls$os_crypt$encrypted_key
+  if (is.null(b64) || !nzchar(b64)) {
+    cli::cli_abort("No encryption key found in {.path {local_state}}.")
+  }
+  raw_key <- openssl::base64_decode(b64)
+  if (length(raw_key) < 5L || rawToChar(raw_key[1:5]) != "DPAPI") {
+    cli::cli_abort("Unexpected format in {.path {local_state}}: missing DPAPI prefix.")
+  }
+  dpapi_unprotect(raw_key[-(1:5)])
+}
+
+
+#' Unprotect a DPAPI-protected blob via PowerShell
+#'
+#' Writes a small `.ps1` file and calls `powershell.exe`, which handles the
+#' DPAPI call without requiring compiled code.
+#'
+#' @param raw_bytes a raw vector holding the DPAPI-protected blob.
+#' @return a raw vector of the unprotected bytes.
+#' @noRd
+dpapi_unprotect <- function(raw_bytes) {
+  b64_in <- openssl::base64_encode(raw_bytes, linebreaks = FALSE)
+  ps <- paste0(
+    "Add-Type -AssemblyName System.Security\n",
+    "$e = [Convert]::FromBase64String('", b64_in, "')\n",
+    "$d = [System.Security.Cryptography.ProtectedData]::Unprotect(",
+    "$e, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)\n",
+    "[Convert]::ToBase64String($d)\n"
+  )
+  tmp <- tempfile(fileext = ".ps1")
+  on.exit(unlink(tmp))
+  writeLines(ps, tmp)
+  out <- run_powershell_script(tmp)
+  if (length(out) == 0L || !nzchar(out[1L])) {
+    cli::cli_abort("DPAPI decryption of the Chromium key failed.")
+  }
+  openssl::base64_decode(out[1L])
+}
+
+
+#' Run a PowerShell script file and return stdout lines
+#' @noRd
+run_powershell_script <- function(path) {
+  suppressWarnings(system2(
+    "powershell",
+    c(
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-File", shQuote(path)
+    ),
+    stdout = TRUE,
+    stderr = FALSE
+  ))
+}
+
+
+#' Decrypt one AES-256-GCM encrypted Chromium value (Windows)
+#'
+#' @param ciphertext raw vector without the version prefix (`v10`).
+#'   Layout: 12-byte nonce | encrypted data | 16-byte GCM tag.
+#' @param key 32-byte raw vector (AES-256 key).
+#' @param host_key cookie domain.
+#' @param hash_prefix whether the plain text starts with the SHA-256 hash of
+#'   `host_key` (Chromium database version >= 24).
+#' @return a string, or `NULL` if decryption failed.
+#' @noRd
+decrypt_chromium_value_gcm <- function(ciphertext, key, host_key, hash_prefix) {
+  if (length(ciphertext) < 29L) {
+    return(NULL)
+  }
+  nonce <- ciphertext[1:12]
+  rest <- ciphertext[-(1:12)]
+  n <- length(rest)
+  if (n < 17L) {
+    return(NULL)
+  }
+  # aes_gcm_encrypt() appends the 16-byte authentication tag; split it off
+  tag <- rest[(n - 15L):n]
+  data <- rest[seq_len(n - 16L)]
+  plain <- tryCatch(
+    openssl::aes_gcm_decrypt(data, key, iv = nonce, tag = tag),
+    error = function(e) NULL
+  )
+  if (is.null(plain)) {
+    return(NULL)
+  }
+  if (hash_prefix) {
+    hash <- as.raw(openssl::sha256(charToRaw(host_key)))
+    if (length(plain) < 32L || !identical(plain[1:32], hash)) {
       return(NULL)
     }
     plain <- plain[-(1:32)]

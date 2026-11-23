@@ -142,22 +142,7 @@ Paths (`~/.config/...`): `google-chrome`, `chromium`,
 
 ---
 
-## Phase 3: Chromium on macOS
-
-- Paths under `~/Library/Application Support/`: `Google/Chrome`, `Chromium`,
-  `BraveSoftware/Brave-Browser`, `Microsoft Edge`, `Vivaldi`,
-  `com.operasoftware.Opera` (**VERIFY**).
-- Password:
-  `system2("security", c("find-generic-password", "-w", "-s", "<keyring_name> Safe Storage"), stdout = TRUE)`.
-  Triggers a macOS Keychain prompt — mention it in the docs and in a
-  `cli_inform()` before calling.
-- Key: PBKDF2-HMAC-SHA1(password, `"saltysalt"`, **1003** iterations, 16 bytes);
-  AES-128-CBC, IV 16 spaces, prefix `v10`. Same hash-prefix rule.
-- Tests: mocked password + fixture encrypted with the derived key.
-
----
-
-## Phase 4: Chromium on Windows
+## Phase 3: Chromium on Windows
 
 - Paths: `%LOCALAPPDATA%\Google\Chrome\User Data`,
   `%LOCALAPPDATA%\Chromium\User Data`,
@@ -180,6 +165,21 @@ Paths (`~/.config/...`): `google-chrome`, `chromium`,
   `FALSE`. Detect and abort with "close the browser and try again".
 - Tests: fixture with AES-GCM values and a known key, `dpapi_unprotect()`
   mocked. A `v20` value must produce the warning.
+
+---
+
+## Phase 4: Chromium on macOS
+
+- Paths under `~/Library/Application Support/`: `Google/Chrome`, `Chromium`,
+  `BraveSoftware/Brave-Browser`, `Microsoft Edge`, `Vivaldi`,
+  `com.operasoftware.Opera` (**VERIFY**).
+- Password:
+  `system2("security", c("find-generic-password", "-w", "-s", "<keyring_name> Safe Storage"), stdout = TRUE)`.
+  Triggers a macOS Keychain prompt — mention it in the docs and in a
+  `cli_inform()` before calling.
+- Key: PBKDF2-HMAC-SHA1(password, `"saltysalt"`, **1003** iterations, 16 bytes);
+  AES-128-CBC, IV 16 spaces, prefix `v10`. Same hash-prefix rule.
+- Tests: mocked password + fixture encrypted with the derived key.
 
 ---
 

@@ -135,3 +135,88 @@ make_chromium_db <- function(file, meta_version) {
 # meta version 24 added the SHA-256 hash of host_key to the plain text
 make_chromium_db(file.path(fixture_dir, "chromium_cookies_v23.sqlite"), 23)
 make_chromium_db(file.path(fixture_dir, "chromium_cookies_v24.sqlite"), 24)
+
+# Chromium (Windows) -----------------------------------------------------------
+# AES-256-GCM key: 32 bytes 0x00..0x1f (used as a known test key; in
+# production this is DPAPI-unprotected from Local State).
+chromium_windows_key <- as.raw(0:31)
+
+chromium_windows_cookies <- data.frame(
+  host_key  = c(".example.com",  "www.example.com", ".blocked.test"),
+  name      = c("session_id",    "theme",           "v20_cookie"),
+  value     = c("secret",        "light",           "blocked"),
+  prefix    = c("v10",           NA,                "v20"),
+  path      = c("/",             "/",               "/"),
+  expiry    = c(2147483647,      0,                 2147483647),
+  is_secure = c(1L,              0L,                0L)
+)
+
+chromium_gcm_encrypt <- function(value, host_key, key, hash_prefix) {
+  plain <- charToRaw(value)
+  if (hash_prefix) {
+    plain <- c(as.raw(openssl::sha256(charToRaw(host_key))), plain)
+  }
+  nonce <- as.raw(1:12)  # fixed nonce so the fixture is reproducible
+  ct <- openssl::aes_gcm_encrypt(plain, key, iv = nonce)
+  # aes_gcm_encrypt() returns ciphertext with the 16-byte tag as attr("tag");
+  # Chromium stores the layout as: prefix | nonce | ciphertext | tag
+  c(charToRaw("v10"), nonce, as.raw(ct), attr(ct, "tag"))
+}
+
+make_chromium_windows_db <- function(file, meta_version) {
+  unlink(file)
+  conn <- DBI::dbConnect(RSQLite::SQLite(), file)
+  on.exit(DBI::dbDisconnect(conn))
+  for (sql in chromium_schema) {
+    DBI::dbExecute(conn, sql)
+  }
+  DBI::dbExecute(
+    conn,
+    "INSERT INTO meta VALUES ('version', ?)",
+    params = list(as.character(meta_version))
+  )
+  ck <- chromium_windows_cookies
+  encrypted <- lapply(seq_len(nrow(ck)), function(i) {
+    if (is.na(ck$prefix[i])) {
+      return(raw())
+    }
+    if (ck$prefix[i] == "v20") {
+      return(c(charToRaw("v20"), as.raw(rep(0L, 10L))))
+    }
+    chromium_gcm_encrypt(
+      ck$value[i],
+      ck$host_key[i],
+      chromium_windows_key,
+      hash_prefix = meta_version >= 24
+    )
+  })
+  value <- ifelse(is.na(ck$prefix), ck$value, "")
+  expires_utc <- ifelse(
+    ck$expiry == 0,
+    0,
+    (ck$expiry + 11644473600) * 1e6
+  )
+  DBI::dbExecute(
+    conn,
+    paste(
+      "INSERT INTO cookies VALUES",
+      "(0, ?, '', ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 1, 0, 2, 443, 0, 0, 0)"
+    ),
+    params = list(
+      ck$host_key,
+      ck$name,
+      value,
+      blob::as_blob(encrypted),
+      ck$path,
+      bit64::as.integer64(expires_utc),
+      ck$is_secure,
+      as.integer(ck$expiry != 0),
+      as.integer(ck$expiry != 0)
+    )
+  )
+}
+
+make_chromium_windows_db(
+  file.path(fixture_dir, "chromium_cookies_windows_v24.sqlite"),
+  24
+)

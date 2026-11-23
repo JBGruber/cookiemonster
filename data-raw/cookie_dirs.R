@@ -50,18 +50,40 @@ gecko <- function(
 }
 
 # keyring_name is the name used for the keyring entry
-# ("<keyring_name> Safe Storage"); several browsers reuse Chrome's or
-# Chromium's name on Linux.
-chromium <- function(browser, linux = character(), linux_keyring = NA) {
-  tibble::tibble(
-    os = "Linux",
-    browser = browser,
-    engine = "chromium",
-    env = NA_character_,
-    path = linux,
-    cookie_file = "Cookies",
-    keyring_name = linux_keyring
-  )
+# ("<keyring_name> Safe Storage" on macOS; "application <name>" on Linux).
+# windows_keyring defaults to linux_keyring; Windows decryption uses DPAPI and
+# does not look up a named keyring, but the column must be non-NA.
+chromium <- function(
+  browser,
+  linux = character(),
+  linux_keyring = NA_character_,
+  windows = character(),
+  windows_keyring = linux_keyring
+) {
+  rows <- list()
+  if (length(linux) > 0) {
+    rows$linux <- tibble::tibble(
+      os = "Linux",
+      browser = browser,
+      engine = "chromium",
+      env = NA_character_,
+      path = linux,
+      cookie_file = "Cookies",
+      keyring_name = linux_keyring
+    )
+  }
+  if (length(windows) > 0) {
+    rows$windows <- tibble::tibble(
+      os = "Windows",
+      browser = browser,
+      engine = "chromium",
+      env = sub("\\\\.*", "", windows),
+      path = sub("^[^\\\\]+\\\\", "", windows),
+      cookie_file = "Cookies",
+      keyring_name = windows_keyring
+    )
+  }
+  do.call(rbind, rows)
 }
 
 cookie_dirs <- rbind(
@@ -117,7 +139,8 @@ cookie_dirs <- rbind(
       "~/.config/google-chrome",
       "~/.var/app/com.google.Chrome/config/google-chrome"
     ),
-    linux_keyring = "Chrome"
+    linux_keyring = "Chrome",
+    windows = "LOCALAPPDATA\\Google\\Chrome\\User Data"
   ),
   chromium(
     "Chromium",
@@ -127,7 +150,8 @@ cookie_dirs <- rbind(
       "~/.var/app/org.chromium.Chromium/config/chromium",
       "~/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium"
     ),
-    linux_keyring = "Chromium"
+    linux_keyring = "Chromium",
+    windows = "LOCALAPPDATA\\Chromium\\User Data"
   ),
   chromium(
     "Brave",
@@ -135,7 +159,8 @@ cookie_dirs <- rbind(
       "~/.config/BraveSoftware/Brave-Browser",
       "~/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser"
     ),
-    linux_keyring = "Brave"
+    linux_keyring = "Brave",
+    windows = "LOCALAPPDATA\\BraveSoftware\\Brave-Browser\\User Data"
   ),
   chromium(
     "Edge",
@@ -143,7 +168,9 @@ cookie_dirs <- rbind(
       "~/.config/microsoft-edge",
       "~/.var/app/com.microsoft.Edge/config/microsoft-edge"
     ),
-    linux_keyring = "Chromium"
+    linux_keyring = "Chromium",
+    windows = "LOCALAPPDATA\\Microsoft\\Edge\\User Data",
+    windows_keyring = "Microsoft Edge"
   ),
   chromium(
     "Vivaldi",
@@ -151,7 +178,9 @@ cookie_dirs <- rbind(
       "~/.config/vivaldi",
       "~/.var/app/com.vivaldi.Vivaldi/config/vivaldi"
     ),
-    linux_keyring = "Chrome"
+    linux_keyring = "Chrome",
+    windows = "LOCALAPPDATA\\Vivaldi\\User Data",
+    windows_keyring = "Vivaldi"
   ),
   chromium(
     "Opera",
@@ -159,7 +188,9 @@ cookie_dirs <- rbind(
       "~/.config/opera",
       "~/.var/app/com.opera.Opera/config/opera"
     ),
-    linux_keyring = "Chromium"
+    linux_keyring = "Chromium",
+    windows = "APPDATA\\Opera Software\\Opera Stable",
+    windows_keyring = "Opera"
   )
 )
 
