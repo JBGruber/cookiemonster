@@ -79,8 +79,8 @@ Chromium-based browsers encrypt their cookies with a password that is kept
 in the macOS Keychain (e.g., "Chrome Safe Storage"). It is read with the
 \code{security} command line tool, which makes macOS ask you whether R (or the
 app you run it in) may access the entry; choose "Always Allow" to not be
-asked every time. Cookies that can't be decrypted are dropped with a
-warning.
+asked every time. Each browser has its own entry, so you are asked once
+per browser. Cookies that can't be decrypted are dropped with a warning.
 }
 
 \section{Safari}{

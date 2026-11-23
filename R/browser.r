@@ -56,8 +56,8 @@
 #' in the macOS Keychain (e.g., "Chrome Safe Storage"). It is read with the
 #' `security` command line tool, which makes macOS ask you whether R (or the
 #' app you run it in) may access the entry; choose "Always Allow" to not be
-#' asked every time. Cookies that can't be decrypted are dropped with a
-#' warning.
+#' asked every time. Each browser has its own entry, so you are asked once
+#' per browser. Cookies that can't be decrypted are dropped with a warning.
 #'
 #' @section Safari:
 #'
@@ -106,12 +106,15 @@ get_cookies_from_browser <- function(browser = "Firefox") {
   # this.
   requireNamespace("curl", quietly = TRUE)
 
+  # profiles of one browser share a password: ask the keyring only once
+  passwords <- new.env(parent = emptyenv())
   cookies <- lapply(seq_len(nrow(jars)), function(i) {
     read_cookie_db(
       jars$path[i],
       engine = jars$engine[i],
       keyring_name = jars$keyring_name[i],
-      root = jars$root[i]
+      root = jars$root[i],
+      passwords = passwords
     )
   })
   vctrs::vec_unique(vctrs::vec_rbind(!!!cookies))
@@ -222,13 +225,16 @@ prefer_network_dir <- function(jars) {
 #' @param engine browser engine, used to dispatch `prep_db()`.
 #' @param keyring_name Chromium only: name of the browser's keyring entry.
 #' @param root Chromium on Windows only: the browser's User Data directory.
+#' @param passwords `NULL` or an environment that caches keyring passwords
+#'   (see `lookup_password()`).
 #' @return a tibble in the common cookie schema.
 #' @noRd
 read_cookie_db <- function(
   db_file,
   engine,
   keyring_name = NA_character_,
-  root = NA_character_
+  root = NA_character_,
+  passwords = NULL
 ) {
   tmp <- tempfile("cookiemonster")
   dir.create(tmp)
@@ -266,7 +272,8 @@ read_cookie_db <- function(
       file = local_file,
       path = db_file,
       keyring_name = keyring_name,
-      root = root
+      root = root,
+      passwords = passwords
     ),
     class = c(engine, "cookie_db")
   )
@@ -355,7 +362,8 @@ prep_db.chromium <- function(db) {
       value = cookies$value,
       host_key = cookies$host_key,
       meta_version = meta_version,
-      keyring_name = db$keyring_name
+      keyring_name = db$keyring_name,
+      passwords = db$passwords
     )
     failed <- is.na(value)
     if (any(failed)) {
@@ -531,6 +539,7 @@ parse_binarycookies_record <- function(rec, bad) {
 #'   on, the plain text starts with the SHA-256 hash of `host_key`.
 #' @param keyring_name name of the keyring entry.
 #' @param os operating system, as returned by `current_os()`.
+#' @param passwords `NULL` or an environment that caches keyring passwords.
 #' @return character vector of values; `NA` where decryption failed.
 #' @noRd
 decrypt_chromium_values <- function(
@@ -539,7 +548,8 @@ decrypt_chromium_values <- function(
   host_key,
   meta_version,
   keyring_name,
-  os = current_os()
+  os = current_os(),
+  passwords = NULL
 ) {
   value <- as.character(value)
   prefix <- vapply(
@@ -555,7 +565,11 @@ decrypt_chromium_values <- function(
   if (os == "Darwin") {
     keys <- list()
     if (any(prefix[todo] == "v10")) {
-      password <- get_chromium_password_mac(keyring_name)
+      password <- lookup_password(
+        get_chromium_password_mac,
+        keyring_name,
+        passwords
+      )
       if (!is.null(password)) {
         keys$v10 <- list(chromium_mac_key(password))
       }
@@ -564,7 +578,11 @@ decrypt_chromium_values <- function(
     empty_key <- chromium_linux_key("")
     keys <- list(v10 = list(chromium_linux_key("peanuts"), empty_key))
     if (any(prefix[todo] == "v11")) {
-      password <- get_chromium_password(keyring_name)
+      password <- lookup_password(
+        get_chromium_password,
+        keyring_name,
+        passwords
+      )
       keys$v11 <- c(
         if (!is.null(password)) list(chromium_linux_key(password)),
         list(empty_key)
@@ -820,6 +838,25 @@ decrypt_chromium_value_gcm <- function(ciphertext, key, host_key, hash_prefix) {
 #' @noRd
 chromium_linux_key <- function(password) {
   pbkdf2_sha1(password, "saltysalt", iterations = 1, key_length = 16)
+}
+
+
+#' Look up a keyring password, at most once per cache
+#'
+#' @param fun function that takes `keyring_name` and returns the password or
+#'   `NULL`.
+#' @param keyring_name name of the keyring entry.
+#' @param passwords `NULL` (no caching) or an environment. Failed lookups
+#'   (`NULL`) are cached too, so a refused prompt is not repeated.
+#' @noRd
+lookup_password <- function(fun, keyring_name, passwords = NULL) {
+  if (is.null(passwords)) {
+    return(fun(keyring_name))
+  }
+  if (!exists(keyring_name, envir = passwords, inherits = FALSE)) {
+    assign(keyring_name, fun(keyring_name), envir = passwords)
+  }
+  get(keyring_name, envir = passwords, inherits = FALSE)
 }
 
 

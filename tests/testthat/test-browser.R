@@ -329,6 +329,40 @@ test_that("the macOS Keychain is only asked if there are encrypted values", {
   expect_equal(cookies$value, "dark")
 })
 
+test_that("the keyring is asked only once for all profiles", {
+  local_mocked_bindings(current_os = function() "Darwin")
+  n_calls <- 0L
+  local_mocked_bindings(
+    get_chromium_password_mac = function(keyring_name) {
+      n_calls <<- n_calls + 1L
+      "cookie-jar-password"
+    },
+    find_cookiejar = function(browser) {
+      tibble::tibble(
+        browser = "Chrome",
+        engine = "chromium",
+        keyring_name = "Chrome",
+        root = fixture(),
+        path = rep(fixture("chromium_cookies_mac_v24.sqlite"), 3)
+      )
+    }
+  )
+  cookies <- get_cookies_from_browser("Chrome")
+  expect_equal(n_calls, 1L)
+  expect_equal(cookies$value, c("abc123", "dark", "crumble"))
+
+  # a refused prompt is not repeated either
+  n_calls <- 0L
+  local_mocked_bindings(
+    get_chromium_password_mac = function(keyring_name) {
+      n_calls <<- n_calls + 1L
+      NULL
+    }
+  )
+  suppressWarnings(get_cookies_from_browser("Chrome"))
+  expect_equal(n_calls, 1L)
+})
+
 test_that("Chromium passwords are looked up in the macOS Keychain", {
   call <- NULL
   local_mocked_bindings(
