@@ -10,7 +10,7 @@ vignette: >
 ## Reading and storing cookies
 
 Welcome to the `cookiemonster` package, a one-stop solution to help you navigate the delicious world of browser cookies!
-In this vignette, we will explain what browser cookies are, how to read and store them using the `cookiemonster` package, and interact with them using the modern `httr2` package, the legacy `httr` package, and the powerful `curl` package.
+This vignette explains what browser cookies are, how to read and store them using the `cookiemonster` package, and interact with them using the modern `httr2` package, the legacy `httr` package, and the powerful `curl` package.
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -30,7 +30,7 @@ httr2_available <- is_available("httr2")
 ## What are Browser Cookies?
 
 This package helps you manage browser cookies in R, making it easy to work with cookies when sending HTTP requests.
-Before we dive into the functions and features of the package, let's briefly discuss what browser cookies are.
+Before diving into the functions and features of the package, here is a brief look at what browser cookies are.
 Browser cookies are small pieces of data that websites send to your browser to store and later retrieve.
 They help websites remember your preferences, login information, or even the items in your shopping cart.
 Cookies play a crucial role in making your browsing experience smooth and personalized.
@@ -40,17 +40,23 @@ They allow your scripts to efficiently mimic browser behaviour and maintain sess
 
 ## Reading and Storing Cookies
 
-Using the `cookiemonster` package, we can easily read and store cookies for further use.
-First, let's load the package:
+The `cookiemonster` package makes it easy to read and store cookies for further use.
+First, load the package:
 
 ```{r setup}
 library(cookiemonster)
 ```
 
-To use cookies with the `cookiemonster`, you will need to export the necessary cookies from your browser after visiting or logging into a website.
-To do this, you can use browser extensions like ["Get cookies.txt"](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) for Chromium-based browsers or ["cookies.txt"](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) for Firefox.
+To use cookies with the `cookiemonster`, you will need to get the necessary cookies out of your browser after visiting or logging into a website.
+The manual way comes first: exporting them with a browser extension.
+There is an automated way to do this as well, shown [further down](#getting-cookies-straight-from-your-browser).
+But the manual export is worth knowing, as it shows you exactly what is going on: you pick a website, you see which cookies it set, and only those end up in a file that you can open and inspect.
+Since cookies can contain your login sessions, handing over only the cookies you actually need is also the safer option.
 
-Let's import an example cookie file provided by the `cookiemonster` package:
+To export cookies, you can use browser extensions like ["Get cookies.txt"](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) for Chromium-based browsers or ["cookies.txt"](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) for Firefox.
+Open the website whose cookies you want, click on the extension and export the cookies for the current site into a `cookies.txt` file.
+
+To follow along, copy the example cookie file that comes with the `cookiemonster` package:
 
 ```{r eval=FALSE}
 file.copy(
@@ -59,20 +65,20 @@ file.copy(
 )
 ```
 
-This is how the file looks like:
+This is how the file looks like (each line is one cookie, with the domain, whether subdomains are included, path, whether the cookie is only sent over HTTPS, expiration date, name and value):
 
 ```{r eval=FALSE}
-readLines("cookies.txt") |> 
+readLines("cookies.txt") |>
   cat(sep = "\n")
 ```
 
 ```{r echo=FALSE}
-system.file("extdata", "cookies.txt", package = "cookiemonster") |> 
-  readLines() |> 
+system.file("extdata", "cookies.txt", package = "cookiemonster") |>
+  readLines() |>
   cat(sep = "\n")
 ```
 
-Now, let's add the cookies from this file to our cookie jar:
+Now, add the cookies from this file to your cookie jar:
 
 ```{r eval=FALSE}
 add_cookies(cookiefile = "cookies.txt")
@@ -80,18 +86,42 @@ add_cookies(cookiefile = "cookies.txt")
 
 ```{r echo=FALSE}
 add_cookies(
-  cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"), 
+  cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"),
   confirm = TRUE
 )
 ```
 
-You can also import cookies directly from your browser (Firefox and its relatives LibreWolf, Zen, Waterfox and Floorp, the Chromium-based Chrome, Chromium, Brave, Edge, Vivaldi and Opera, and Safari on macOS; see `?get_cookies_from_browser`):
+The cookies are now in your jar, where their values are stored encrypted.
+
+### Getting cookies straight from your browser
+
+Exporting cookies by hand gets tedious when you need them for several websites or need to refresh them regularly.
+`get_cookies_from_browser()` automates the export: it reads the cookie database your browser keeps on disk (for all of its profiles) and returns the cookies in the same format as the cookie file above.
+Supported are Firefox and its relatives LibreWolf, Zen, Waterfox and Floorp, the Chromium-based Chrome, Chromium, Brave, Edge, Vivaldi and Opera, and Safari on macOS:
 
 ```{r eval=FALSE}
-cookies <- get_cookies_from_browser(browser = "Firefox") 
+cookies <- get_cookies_from_browser(browser = "Firefox")
+```
+
+Keep in mind that this gets you *all* cookies of the browser, from every website you have visited, not just the ones you need.
+The values are only held in memory until you store them, but it is good practice to only put the cookies you actually need in the jar:
+
+```{r eval=FALSE}
+cookies <- cookies[grepl("hb.cran.dev", cookies$domain, fixed = TRUE), ]
 store_cookies(cookies)
 ```
 
+Most browsers protect their cookies, so depending on browser and operating system, there are a few things to be aware of:
+
+- Chromium-based browsers encrypt cookie values with a key from your system's keyring (Secret Service or KWallet on Linux, the Keychain on macOS) or protected by Windows. Your system might ask you to unlock the keyring or to allow R to access it.
+- On Windows, close Chromium-based browsers before reading their cookies. Cookies protected by Chrome's newer app-bound encryption can't be decrypted and are dropped with a warning.
+- Safari's cookies are only readable if the app you run R in has Full Disk Access.
+
+See `?get_cookies_from_browser` for the details.
+If your browser is not supported or its cookies can't be read, the extension route above still works.
+
+
+### Getting cookies from a live `rvest` session
 
 If you are working with `rvest` version 1.0.4 or above, you might also know about live browser sessions:
 
@@ -146,13 +176,13 @@ To retrieve cookies for a specific domain:
 get_cookies("hb.cran.dev")
 ```
 
-Note that his function uses regular expressions to match the domain by default.
+Note that this function uses regular expressions to match the domain by default.
 
 ## Using `cookiemonster` with other packages
 
 ### Using Stored Cookies with `httr2`
 
-Now let's see how to use stored cookies with the `httr2` package:
+This is how you use stored cookies with the `httr2` package:
 
 ```{r eval=httr2_available}
 library(httr2)
@@ -160,7 +190,7 @@ resp <- request("https://hb.cran.dev/cookies/set") |> # start a request
   req_options(cookie = get_cookies("hb.cran.dev", as = "string")) |> # add cookies to be sent with it
   req_perform() # perform the request
 
-resp |> 
+resp |>
   resp_body_json()
 ```
 
@@ -171,14 +201,14 @@ resp <- request("https://hb.cran.dev/cookies/set") |> # start a request
   req_cookiemonster_set() |> # add cookies to be sent with it
   req_perform() # perform the request
 
-resp |> 
+resp |>
   resp_body_json()
 ```
 
 
-As you can see, the individual cookie values we see above are returned correctly.
+As you can see, the individual cookie values from above are returned correctly.
 This is because the server at https://hb.cran.dev is configured to echo requests send to it.
-It shows us that the correct cookies were send (hooray!).
+It shows that the correct cookies were sent (hooray!).
 
 ### Using Stored Cookies with `httr`
 
@@ -186,7 +216,10 @@ To use stored cookies with the legacy `httr` package:
 
 ```{r eval=httr_available}
 library(httr)
-GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
+GET(
+  "https://hb.cran.dev/cookies/set",
+  set_cookies(get_cookies("hb.cran.dev", as = "vector"))
+)
 ```
 
 This code uses the 'httr' library to set cookies from the 'https://hb.cran.dev' website (a test website for development).
@@ -196,7 +229,7 @@ The `GET` function is used to set the cookies, and the `set_cookies` function ad
 
 `curl` is the backbone of both `httr` and `httr2`, which provide a more straightforward interface for it.
 You can also use `curl` directly though (which is only recommended for advanced users though).
-To make the same request as above, we can use this code:
+To make the same request as above, use this code:
 
 ```{r eval=curl_available}
 library(curl)
@@ -210,7 +243,10 @@ If the `curl` response contains new cookies:
 
 ```{r eval=curl_available}
 h2 <- new_handle()
-resp <- curl_fetch_memory("https://hb.cran.dev/cookies/set?new_cookies=moo", handle = h2)
+resp <- curl_fetch_memory(
+  "https://hb.cran.dev/cookies/set?new_cookies=moo",
+  handle = h2
+)
 handle_cookies(h2)
 ```
 

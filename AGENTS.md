@@ -19,11 +19,12 @@ on-disk cookie database (`get_cookies_from_browser()`).
 | `R/delete.r` | `delete_cookies()` |
 | `R/req_cookiemonster_set.r` | `req_cookiemonster_set()`: httr2 request helper |
 | `R/encryption.r` | `encrypt_vec()` / `decrypt_vec()`: AES-CTR encryption of cookie values in the jar, key from env var `COOKIE_KEY` |
-| `R/browser.r` | `get_cookies_from_browser()` and its internals (`find_cookiejar()`, `read_cookie_db()`, `prep_db()` S3 generic). Currently Firefox only. |
+| `R/browser.r` | `get_cookies_from_browser()` and its internals: `find_cookiejar()` (locate databases via `cookie_dirs`), `read_cookie_db()` (copy to temp dir, open), `prep_db()` S3 generic with methods per engine (`firefox`, `chromium`, `safari`), Chromium decryption (`decrypt_chromium_values()`, Linux keyring via `secret-tool`/`kwallet-query`, macOS Keychain via `security`, Windows DPAPI via PowerShell) and the Safari `Cookies.binarycookies` parser (`parse_binarycookies()`). |
 | `R/utils.r` | `url_get_domain()`, `is_expired()` |
 | `R/sysdata.rda` | Internal data: the `cookie_dirs` table. **Generated**, do not edit by hand. |
-| `data-raw/cookie_dirs.R` | Source of `cookie_dirs` (OS × browser → profile directory). Run it to regenerate `R/sysdata.rda`. |
+| `data-raw/cookie_dirs.R` | Source of `cookie_dirs`: one row per OS × browser × location, with `os`, `browser`, `engine`, `env`, `path`, `cookie_file`, `keyring_name`. Run it to regenerate `R/sysdata.rda`. |
 | `tests/testthat/` | testthat (3rd edition) tests, one file per source file |
+| `tests/testthat/fixtures/` | Small fake browser databases (Firefox, Chromium per OS/version, Safari) with made-up cookies. Built by `make_fixtures.R`; rerun it instead of editing the binaries. |
 | `inst/extdata/cookies.txt` | Example Netscape cookie file used in examples/tests |
 | `vignettes/cookies.Rmd` | Main vignette |
 | `README.Rmd` → `README.md` | Edit the `.Rmd`, then knit |
@@ -64,13 +65,33 @@ New parsers must produce this schema so `store_cookies()` and
 - Update `NEWS.md` under the development version heading for user-visible
   changes.
 
+## Browser support
+
+`get_cookies_from_browser()` dispatches on the browser *engine*, not the
+browser name, so a new browser of a known engine only needs rows in
+`data-raw/cookie_dirs.R`. A new engine needs a `prep_db.<engine>()` method that
+returns the common cookie schema with `expiration` already as POSIXct. The
+user-facing list of supported browsers lives in the roxygen of
+`get_cookies_from_browser()` (table plus per-OS sections), the vignette and
+`NEWS.md`: keep them in sync with `cookie_dirs`.
+
 ## Gotchas
 
 - `get_cookies_from_browser()` calls `requireNamespace("curl")` *before*
   connecting with RSQLite on purpose (libcurl symbol clash in some RSQLite
   binaries). Keep that order.
 - Browser databases are locked or in WAL mode while the browser runs; always
-  work on a copy in a temp directory.
+  work on a copy (including `-wal`/`-shm` files) in a fresh temp directory.
+- Chromium keyring passwords are cached per call in the `passwords`
+  environment so the user is asked only once per browser (relevant on macOS,
+  where every Keychain access can prompt). Keep passing it through.
+- Cookies that can't be decrypted (e.g. Windows app-bound `v20`) are dropped
+  with a `cli` warning; the rest are still returned. Don't abort for those.
+- Firefox 142+ stores `expiry` in milliseconds; Chromium uses microseconds
+  since 1601-01-01; Safari uses seconds since 2001-01-01.
+- External tools are wrapped so tests can mock them: `secret-tool`,
+  `kwallet-query` and `security` go through `run_quietly()`/`has_command()`,
+  PowerShell through `run_powershell_script()`/`dpapi_unprotect()`.
 - `Sys.info()[["sysname"]]` returns `"Linux"`, `"Windows"` or `"Darwin"`
   (not `"macOS"`).
 - Tests must not depend on a real browser being installed: use fixtures in
@@ -90,5 +111,7 @@ source("data-raw/cookie_dirs.R")  # regenerate R/sysdata.rda after editing cooki
 
 ## Current work
 
-See `plan.md` for the plan to support more browsers in
-`get_cookies_from_browser()`.
+`plan.md` holds the (now implemented) plan for the multi-browser
+`get_cookies_from_browser()` on the `browser-support` branch. It is to be
+deleted before merging to `main`; `AGENTS.md` stays (it is in
+`.Rbuildignore`).
