@@ -72,13 +72,24 @@ for further use. First, let’s load the package:
 library(cookiemonster)
 ```
 
-To use cookies with the `cookiemonster`, you will need to export the
-necessary cookies from your browser after visiting or logging into a
-website. To do this, you can use browser extensions like [“Get
+To use cookies with the `cookiemonster`, you will need to get the
+necessary cookies out of your browser after visiting or logging into a
+website. We start with the manual way: exporting them with a browser
+extension. There is an automated way to do this as well, which we show
+[further down](#getting-cookies-straight-from-your-browser). But the
+manual export is worth knowing, as it shows you exactly what is going
+on: you pick a website, you see which cookies it set, and only those end
+up in a file that you can open and inspect. Since cookies can contain
+your login sessions, handing over only the cookies you actually need is
+also the safer option.
+
+To export cookies, you can use browser extensions like [“Get
 cookies.txt”](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 for Chromium-based browsers or
 [“cookies.txt”](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
-for Firefox.
+for Firefox. Open the website whose cookies you want, click on the
+extension and export the cookies for the current site into a
+`cookies.txt` file.
 
 Let’s import an example cookie file provided by the `cookiemonster`
 package:
@@ -90,7 +101,9 @@ file.copy(
 )
 ```
 
-This is how the file looks like:
+This is how the file looks like (each line is one cookie, with the
+domain, whether subdomains are included, path, whether the cookie is
+only sent over HTTPS, expiration date, name and value):
 
 ``` r
 readLines("cookies.txt") |> 
@@ -111,13 +124,51 @@ Now, let’s add the cookies from this file to our cookie jar:
 add_cookies(cookiefile = "cookies.txt")
 ```
 
-You can also import cookies directly from your browser (only works with
-Firefox at the moment):
+The cookies are now in your jar, where their values are stored
+encrypted.
+
+### Getting cookies straight from your browser
+
+Exporting cookies by hand gets tedious when you need them for several
+websites or need to refresh them regularly. `get_cookies_from_browser()`
+automates the export: it reads the cookie database your browser keeps on
+disk (for all of its profiles) and returns the cookies in the same
+format as the cookie file above. Supported are Firefox and its relatives
+LibreWolf, Zen, Waterfox and Floorp, the Chromium-based Chrome,
+Chromium, Brave, Edge, Vivaldi and Opera, and Safari on macOS:
 
 ``` r
-cookies <- get_cookies_from_browser(browser = "Firefox") 
+cookies <- get_cookies_from_browser(browser = "Firefox")
+```
+
+Keep in mind that this gets you *all* cookies of the browser, from every
+website you have visited, not just the ones you need. The values are
+only held in memory until you store them, but it is good practice to
+only put the cookies you actually need in the jar:
+
+``` r
+cookies <- cookies[grepl("hb.cran.dev", cookies$domain, fixed = TRUE), ]
 store_cookies(cookies)
 ```
+
+Most browsers protect their cookies, so depending on browser and
+operating system, there are a few things to be aware of:
+
+- Chromium-based browsers encrypt cookie values with a key from your
+  system’s keyring (Secret Service or KWallet on Linux, the Keychain on
+  macOS) or protected by Windows. Your system might ask you to unlock
+  the keyring or to allow R to access it.
+- On Windows, close Chromium-based browsers before reading their
+  cookies. Cookies protected by Chrome’s newer app-bound encryption
+  can’t be decrypted and are dropped with a warning.
+- Safari’s cookies are only readable if the app you run R in has Full
+  Disk Access.
+
+See `?get_cookies_from_browser` for the details. If your browser is not
+supported or its cookies can’t be read, the extension route above still
+works.
+
+### Getting cookies from a live `rvest` session
 
 If you are working with `rvest` version 1.0.4 or above, you might also
 know about live browser sessions:
@@ -150,7 +201,7 @@ the `cookie_dir` option:
 ``` r
 options(cookie_dir = tempdir())
 default_jar()
-#> [1] "/tmp/RtmpTS3Qvg"
+#> [1] "/tmp/RtmpTCGDya"
 ```
 
 To revert back to the original cookie storage location:
@@ -173,7 +224,7 @@ get_cookies("hb.cran.dev")
 #> 3 hb.cran.dev FALSE /     FALSE  Inf        easy    true
 ```
 
-Note that his function uses regular expressions to match the domain by
+Note that this function uses regular expressions to match the domain by
 default.
 
 ## Using `cookiemonster` with other packages
@@ -235,7 +286,7 @@ To use stored cookies with the legacy `httr` package:
 library(httr)
 GET("https://hb.cran.dev/cookies/set", set_cookies(get_cookies("hb.cran.dev", as = "vector")))
 #> Response [https://hb.cran.dev/cookies]
-#>   Date: 2025-11-12 21:50
+#>   Date: 2026-11-26 16:21
 #>   Status: 200
 #>   Content-Type: application/json
 #>   Size: 88 B

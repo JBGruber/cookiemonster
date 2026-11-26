@@ -59,20 +59,21 @@
 #' # only get some cookies from example.com
 #' get_cookies(domain = "^example.com", key = "peanut")
 #' @seealso \code{\link{add_cookies}}
-get_cookies <- function(domain,
-                        key = "",
-                        jar = default_jar(),
-                        as = c("data.frame", "string", "vector", "list"),
-                        fixed = FALSE,
-                        include_expired = FALSE) {
-
+get_cookies <- function(
+  domain,
+  key = "",
+  jar = default_jar(),
+  as = c("data.frame", "string", "vector", "list"),
+  fixed = FALSE,
+  include_expired = FALSE
+) {
   as <- match.arg(as)
   f <- file.path(jar, paste0("cookies.rds"))
   if (!file.exists(f)) {
-   cli::cli_abort(paste(
-     "The directory {jar} does not contain any cookies yet. Use {.fn add_cookies} to",
-     "store cookies for a website (see {.code vignette(\"cookies\", \"cookiemonster\")} for details)."
-   ))
+    cli::cli_abort(paste(
+      "The directory {jar} does not contain any cookies yet. Use {.fn add_cookies} to",
+      "store cookies for a website (see {.code vignette(\"cookies\", \"cookiemonster\")} for details)."
+    ))
   }
   cookies <- readRDS(f)
 
@@ -84,14 +85,13 @@ get_cookies <- function(domain,
   out <- cookies[sel, ]
   out$value <- decrypt_vec(out$value)
 
-  switch (
+  switch(
     as,
     "data.frame" = return(out),
     "string" = return(prep_cookies(out)),
     "vector" = return(prep_cookies(out, as_list = TRUE)),
     "list" = return(prep_cookies_chromote(out))
   )
-
 }
 
 

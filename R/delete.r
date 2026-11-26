@@ -15,12 +15,13 @@
 #'
 #' add_cookies(cookiefile = system.file("extdata", "cookies.txt", package = "cookiemonster"))
 #' delete_cookies("example.com", ask = FALSE)
-delete_cookies <- function(domain,
-                           key = "",
-                           jar = default_jar(),
-                           fixed = FALSE,
-                           ask = TRUE) {
-
+delete_cookies <- function(
+  domain,
+  key = "",
+  jar = default_jar(),
+  fixed = FALSE,
+  ask = TRUE
+) {
   f <- file.path(jar, paste0("cookies.rds"))
   cookies <- readRDS(f)
   sel <- select_cookies(cookies, domain, key, fixed)

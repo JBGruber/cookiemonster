@@ -12,7 +12,6 @@ Description: A convenient tool to store and format browser cookies and use them
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)
 Suggests: 
@@ -26,7 +25,8 @@ Suggests:
     rmarkdown,
     RSQLite,
     spelling,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 VignetteBuilder: knitr
 Imports: 
     cli,
@@ -41,3 +41,4 @@ Config/testthat/edition: 3
 Language: en-GB
 URL: https://github.com/JBGruber/cookiemonster
 BugReports: https://github.com/JBGruber/cookiemonster/issues
+Config/roxygen2/version: 8.1.1

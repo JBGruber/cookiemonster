@@ -20,7 +20,10 @@
 #' decrypt_vec(enc)
 #'
 encrypt_vec <- function(vec) {
-  key <- openssl::sha256(charToRaw(Sys.getenv("COOKIE_KEY", unset = "supergeheim")))
+  key <- openssl::sha256(charToRaw(Sys.getenv(
+    "COOKIE_KEY",
+    unset = "supergeheim"
+  )))
   lapply(vec, enc, key)
 }
 
@@ -33,7 +36,10 @@ enc <- function(x, key = NULL) {
 #' @rdname encrypt_vec
 #' @export
 decrypt_vec <- function(vec) {
-  key <- openssl::sha256(charToRaw(Sys.getenv("COOKIE_KEY", unset = "supergeheim")))
+  key <- openssl::sha256(charToRaw(Sys.getenv(
+    "COOKIE_KEY",
+    unset = "supergeheim"
+  )))
   vapply(vec, dec, key, FUN.VALUE = character(1))
 }
 

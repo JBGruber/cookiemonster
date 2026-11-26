@@ -40,10 +40,19 @@
 #' @seealso \code{\link{store_cookies}}
 #'
 #' @export
-add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confirm = FALSE) {
-
-  if (sum(!missing(cookiefile), !missing(cookiestring), !missing(session)) > 1) {
-    cli::cli_abort("This function can either handle a cookie file or string, not both")
+add_cookies <- function(
+  cookiefile,
+  cookiestring,
+  session,
+  domain = NULL,
+  confirm = FALSE
+) {
+  if (
+    sum(!missing(cookiefile), !missing(cookiestring), !missing(session)) > 1
+  ) {
+    cli::cli_abort(
+      "This function can either handle a cookie file or string, not both"
+    )
   } else if (!missing(cookiefile)) {
     cookies <- read_cookiefile(cookiefile)
   } else if (!missing(cookiestring)) {
@@ -51,7 +60,9 @@ add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confir
   } else if (!missing(session)) {
     cookies <- parse_session(session)
   } else {
-    cli::cli_abort("You must provide either a cookie file, cookie string or a live html session.")
+    cli::cli_abort(
+      "You must provide either a cookie file, cookie string or a live html session."
+    )
   }
 
   store_cookies(cookies, confirm = confirm)
@@ -87,10 +98,7 @@ add_cookies <- function(cookiefile, cookiestring, session, domain = NULL, confir
 #'   # then you can retrieve them and use in future calls
 #'   get_cookies("hb.cran.dev")
 #' }
-store_cookies <- function(cookies,
-                          jar = default_jar(),
-                          confirm = FALSE) {
-
+store_cookies <- function(cookies, jar = default_jar(), confirm = FALSE) {
   cookies$value <- encrypt_vec(cookies$value)
   cookies$domain <- url_get_domain(cookies$domain)
   domains <- toString(unique(cookies$domain))
@@ -102,9 +110,13 @@ store_cookies <- function(cookies,
     cookies_old <- cookies_old[!cookies_old$domain %in% cookies$domain, ]
     cookies <- vctrs::vec_rbind(cookies_old, cookies)
   } else if (!confirm) {
-    utils::askYesNo(msg = paste0(
-      "You are storing cookies for the first time. Is it okay to write them to ", f, "?"
-    ))
+    utils::askYesNo(
+      msg = paste0(
+        "You are storing cookies for the first time. Is it okay to write them to ",
+        f,
+        "?"
+      )
+    )
   }
   saveRDS(cookies, f, compress = FALSE)
   cli::cli_alert_success("Cookies for {.emp {domains}} put in the jar!")
@@ -145,19 +157,23 @@ default_jar <- function() {
 #' read a cookie file
 #' @noRd
 read_cookiefile <- function(cookiefile) {
-
   lines <- readLines(cookiefile, warn = FALSE)
   if (!any(grepl("HTTP Cookie File", lines, fixed = TRUE))) {
     cli::cli_alert_danger("This does not seem to be a valid cookiefile")
   }
   df <- utils::read.delim(text = lines[grep("\t", lines)], header = FALSE)
   colnames(df) <- c(
-    "domain", "flag", "path", "secure", "expiration", "name", "value"
+    "domain",
+    "flag",
+    "path",
+    "secure",
+    "expiration",
+    "name",
+    "value"
   )
   df$domain <- url_get_domain(df$domain)
   df$expiration <- as.POSIXct.numeric(df$expiration, origin = "1970-01-01")
   return(tibble::as_tibble(df))
-
 }
 
 #' parse a string containing cookies
@@ -166,7 +182,11 @@ parse_cookiestring <- function(cookiestring, domain) {
   if (is.null(domain)) {
     cli::cli_abort("When parsing cookie strings, you need to provide a domain")
   }
-  cookiestring <- stringi::stri_replace_first_regex(cookiestring, "^Cookie:\\s*", "")
+  cookiestring <- stringi::stri_replace_first_regex(
+    cookiestring,
+    "^Cookie:\\s*",
+    ""
+  )
   cookiestring <- stringi::stri_split_fixed(cookiestring, pattern = "; ")[[1]]
   tibble::tibble(
     domain = url_get_domain(domain),
@@ -184,7 +204,9 @@ parse_cookiestring <- function(cookiestring, domain) {
 #' @noRd
 parse_session <- function(sess) {
   if (!inherits(sess, "LiveHTML")) {
-    cli::cli_abort("{.code sess} must be an object created by {.code rvest::read_html_live()}.")
+    cli::cli_abort(
+      "{.code sess} must be an object created by {.code rvest::read_html_live()}."
+    )
   }
   resp <- sess$session$Network$getCookies()
   parse_chromote_cookies(resp$cookies)
@@ -207,8 +229,10 @@ parse_chromote_cookies <- function(cookies) {
     path = cookie_field(cookies, "path", NA_character_),
     secure = cookie_field(cookies, "secure", NA),
     # session cookies have expires = -1, which is kept as is (see is_expired)
-    expiration = as.POSIXct.numeric(cookie_field(cookies, "expires", NA_real_),
-                                    origin = "1970-01-01"),
+    expiration = as.POSIXct.numeric(
+      cookie_field(cookies, "expires", NA_real_),
+      origin = "1970-01-01"
+    ),
     name = cookie_field(cookies, "name", NA_character_),
     value = cookie_field(cookies, "value", NA_character_)
   )
@@ -218,9 +242,16 @@ parse_chromote_cookies <- function(cookies) {
 #' extract one field from a list of cookie objects, with a default if missing
 #' @noRd
 cookie_field <- function(cookies, field, default) {
-  vapply(cookies, function(el) {
-    x <- el[[field]]
-    if (length(x) != 1L) return(default)
-    as.vector(x, mode = typeof(default))
-  }, FUN.VALUE = default, USE.NAMES = FALSE)
+  vapply(
+    cookies,
+    function(el) {
+      x <- el[[field]]
+      if (length(x) != 1L) {
+        return(default)
+      }
+      as.vector(x, mode = typeof(default))
+    },
+    FUN.VALUE = default,
+    USE.NAMES = FALSE
+  )
 }

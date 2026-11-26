@@ -7,17 +7,93 @@
 get_cookies_from_browser(browser = "Firefox")
 }
 \arguments{
-\item{browser}{A character string specifying the browser to get cookies from.
-Defaults to "Firefox".}
+\item{browser}{A character string specifying the browser to get cookies from
+(case-insensitive, see the section "Supported browsers"). Defaults to "Firefox".}
 }
 \value{
-A tibble containing the cookies from the specified browser.
+A tibble containing the cookies from the specified browser, with the
+columns \code{domain}, \code{flag} (include subdomains), \code{path}, \code{secure},
+\code{expiration}, \code{name} and \code{value}.
 }
 \description{
-Retrieves all cookies from a Browser (currently works with Firefox only).
+Raids the cookie jar of a browser installed on your computer: reads the
+browser's own cookie database (from all profiles found) and returns the
+cookies in the same format as the other cookie sources of this package, ready
+for \code{\link[=store_cookies]{store_cookies()}}.
 }
+\section{Supported browsers}{
+\tabular{lccc}{
+   Browser \tab Linux \tab macOS \tab Windows \cr
+   Firefox \tab yes \tab yes \tab yes \cr
+   LibreWolf \tab yes \tab yes \tab yes \cr
+   Zen \tab yes \tab yes \tab yes \cr
+   Waterfox \tab yes \tab yes \tab yes \cr
+   Floorp \tab yes \tab yes \tab yes \cr
+   Chrome \tab yes \tab yes \tab yes \cr
+   Chromium \tab yes \tab yes \tab yes \cr
+   Brave \tab yes \tab yes \tab yes \cr
+   Edge \tab yes \tab yes \tab yes \cr
+   Vivaldi \tab yes \tab yes \tab yes \cr
+   Opera \tab yes \tab yes \tab yes \cr
+   Safari \tab - \tab yes \tab - \cr
+}
+
+
+If your browser is missing or its cookies can't be read, export a
+\code{cookies.txt} file or use \code{add_cookies(session = ...)} instead.
+
+The browser database is copied to a temporary directory before it is read,
+so the browser can usually stay open. Cookie values are only held in memory;
+they are encrypted once you put them in the jar with \code{\link[=store_cookies]{store_cookies()}}.
+}
+
+\section{Chromium-based browsers on Windows}{
+
+
+Chromium-based browsers encrypt their cookies with an AES-256-GCM key that
+is stored DPAPI-protected in \verb{User Data/Local State}. The key is unprotected
+via PowerShell and held in memory only. Close the browser before reading its
+cookies: Chrome locks the \code{Cookies} file while running.
+
+Cookies encrypted with app-bound encryption (prefix \code{v20}, Chrome 127+ on
+Windows) cannot be decrypted. Those cookies are dropped with a warning; the
+rest of the cookie jar is returned. Export a \code{cookies.txt} file or use
+\code{add_cookies(session = ...)} to work around this.
+}
+
+\section{Chromium-based browsers on Linux}{
+
+
+Chromium-based browsers encrypt their cookies with a password that is kept
+in the desktop's keyring. It is read with \code{secret-tool} (GNOME Keyring and
+other Secret Service providers, usually in the \code{libsecret} package of your
+distribution) or \code{kwallet-query} (KDE), so one of them needs to be
+installed. Your keyring might ask you to unlock it. Cookies that can't be
+decrypted are dropped with a warning.
+}
+
+\section{Chromium-based browsers on macOS}{
+
+
+Chromium-based browsers encrypt their cookies with a password that is kept
+in the macOS Keychain (e.g., "Chrome Safe Storage"). It is read with the
+\code{security} command line tool, which makes macOS ask you whether R (or the
+app you run it in) may access the entry; choose "Always Allow" to not be
+asked every time. Each browser has its own entry, so you are asked once
+per browser. Cookies that can't be decrypted are dropped with a warning.
+}
+
+\section{Safari}{
+
+
+Safari's cookie file is protected by macOS. To read it, the app you run R in
+(e.g., RStudio, Positron or Terminal) needs Full Disk Access: open System
+Settings > Privacy & Security > Full Disk Access, add the app and restart it.
+}
+
 \examples{
 \dontrun{
-get_cookies_from_browser("Firefox")
+cookies <- get_cookies_from_browser("Firefox")
+store_cookies(cookies)
 }
 }
